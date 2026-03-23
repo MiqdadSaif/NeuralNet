@@ -14,7 +14,6 @@ limitations under the License.
 ==============================================================================*/
 
 import * as nn from "./nn";
-import {HeatMap, reduceMatrix} from "./heatmap";
 import {
   State,
   datasets,
@@ -28,6 +27,82 @@ import {
 import {Example2D, shuffle} from "./dataset";
 import {AppendingLineChart} from "./linechart";
 import * as d3 from 'd3';
+
+const TOUR_STEPS = [
+  {
+    // Step 1: Data
+    title: "Get Your Data Ready",
+    content: `
+      <h2>Step 1: Choose Your Data</h2>
+      <p>Neural networks learn from examples. You need data with:</p>
+      <ul>
+        <li><strong>Features:</strong> Input values (like age, income, hours worked)</li>
+        <li><strong>Labels:</strong> What you want to predict (like "will buy" or "price")</li>
+      </ul>
+      <div class="tour-option-cards">
+        <div class="tour-option-card" data-action="upload-csv">
+          <i class="material-icons">upload_file</i>
+          <h3>Upload CSV</h3>
+          <p>Use your own data file</p>
+        </div>
+        <div class="tour-option-card" data-action="use-builtin">
+          <i class="material-icons">dataset</i>
+          <h3>Built-in Data</h3>
+          <p>Start with sample datasets</p>
+        </div>
+      </div>
+    `
+  },
+  {
+    // Step 2: Network Design
+    title: "Design Your Network",
+    content: `
+      <h2>Step 2: Build Your Neural Network</h2>
+      <p>A neural network has layers of "neurons" that process information:</p>
+      <ul>
+        <li><strong>Input Layer:</strong> Takes your data features</li>
+        <li><strong>Hidden Layers:</strong> Processes and learns patterns</li>
+        <li><strong>Output Layer:</strong> Makes predictions</li>
+      </ul>
+      <div class="tour-recommendation">
+        <p><strong>Recommended for beginners:</strong> Start with 2 hidden layers, 4 neurons each. You can always adjust later!</p>
+      </div>
+      <p style="margin-top: 20px;">More neurons = more learning power, but slower training.</p>
+    `
+  },
+  {
+    // Step 3: Training
+    title: "Train Your Network",
+    content: `
+      <h2>Step 3: Train and Watch It Learn</h2>
+      <p>Training is when the network learns patterns from your data.</p>
+      <p>Click the <strong>Play ▶</strong> button to start training. You'll see:</p>
+      <ul>
+        <li><strong>Lines changing color:</strong> The network is adjusting its "weights"</li>
+        <li><strong>Loss decreasing:</strong> The network is getting better at predictions</li>
+        <li><strong>Neurons lighting up:</strong> Different neurons activate for different patterns</li>
+      </ul>
+      <p>Training happens in "epochs" - each epoch means the network has seen all your data once.</p>
+    `
+  },
+  {
+    // Step 4: Results
+    title: "Analyze Results",
+    content: `
+      <h2>Step 4: Check How Well It Learned</h2>
+      <p>After training, you can see:</p>
+      <ul>
+        <li><strong>Accuracy:</strong> Percentage of correct predictions (for classification)</li>
+        <li><strong>Loss:</strong> How wrong the predictions are (lower is better)</li>
+        <li><strong>Prediction Table:</strong> Compare predicted vs actual values</li>
+      </ul>
+      <div class="tour-recommendation">
+        <p><strong>Want to improve?</strong> Try training longer, adding more neurons, or adjusting the learning rate in the toolbar.</p>
+      </div>
+      <p style="margin-top: 24px; font-size: 18px; font-weight: 600; color: #6b5ce7;">🎉 You're ready to explore!</p>
+    `
+  }
+];
 
 let mainWidth;
 
@@ -47,11 +122,123 @@ function scrollTween(offset) {
   };
 }
 
-const RECT_SIZE = 30;
+let currentTourStep = 0;
+let tourActive = false;
+
+function initializeLandingAndTour() {
+  // Check if user has disabled landing screen
+  let dontShowLanding = localStorage.getItem('neuralnet_skip_landing');
+
+  if (dontShowLanding === 'true') {
+    // Hide landing, show main interface
+    d3.select("#landing-screen").style("display", "none");
+  } else {
+    // Show landing screen
+    d3.select("#landing-screen").style("display", "flex");
+  }
+
+  // Landing screen buttons
+  d3.select("#start-tour-btn").on("click", () => {
+    d3.select("#landing-screen").style("display", "none");
+    startTour();
+  });
+
+  d3.select("#skip-to-playground-btn").on("click", () => {
+    d3.select("#landing-screen").style("display", "none");
+  });
+
+  d3.select("#dont-show-landing").on("change", function() {
+    if (this.checked) {
+      localStorage.setItem('neuralnet_skip_landing', 'true');
+    } else {
+      localStorage.removeItem('neuralnet_skip_landing');
+    }
+  });
+
+  // Tour navigation
+  d3.select("#tour-skip-btn").on("click", () => {
+    endTour();
+  });
+
+  d3.select("#tour-next-btn").on("click", () => {
+    nextTourStep();
+  });
+
+  d3.select("#tour-back-btn").on("click", () => {
+    previousTourStep();
+  });
+}
+
+function startTour() {
+  tourActive = true;
+  currentTourStep = 0;
+  d3.select("#tour-overlay").style("display", "block");
+  updateTourStep();
+}
+
+function endTour() {
+  tourActive = false;
+  d3.select("#tour-overlay").style("display", "none");
+}
+
+function nextTourStep() {
+  if (currentTourStep < TOUR_STEPS.length - 1) {
+    currentTourStep++;
+    updateTourStep();
+  } else {
+    // Tour complete
+    endTour();
+  }
+}
+
+function previousTourStep() {
+  if (currentTourStep > 0) {
+    currentTourStep--;
+    updateTourStep();
+  }
+}
+
+function updateTourStep() {
+  let step = TOUR_STEPS[currentTourStep];
+
+  // Update step indicator
+  d3.select("#tour-current-step").text(currentTourStep + 1);
+
+  // Update content
+  d3.select("#tour-step-content").html(step.content);
+
+  // Update navigation buttons
+  if (currentTourStep === 0) {
+    d3.select("#tour-back-btn").style("display", "none");
+  } else {
+    d3.select("#tour-back-btn").style("display", "inline-flex");
+  }
+
+  if (currentTourStep === TOUR_STEPS.length - 1) {
+    d3.select("#tour-next-btn").html('<i class="material-icons">check</i> Finish Tour');
+  } else {
+    d3.select("#tour-next-btn").html('Next <i class="material-icons">arrow_forward</i>');
+  }
+
+  // Add click handlers for tour option cards (Step 1)
+  d3.selectAll(".tour-option-card").on("click", function() {
+    let action = this.getAttribute("data-action");
+
+    if (action === "upload-csv") {
+      // Trigger CSV upload
+      endTour();
+      document.getElementById("csv-upload-input").click();
+    } else if (action === "use-builtin") {
+      // Close tour and user can select built-in dataset
+      endTour();
+    }
+  });
+}
+
+const RECT_SIZE = 45;
 const BIAS_SIZE = 5;
 const NUM_SAMPLES_CLASSIFY = 500;
 const NUM_SAMPLES_REGRESS = 1200;
-const DENSITY = 100;
 
 enum HoverType {
   BIAS, WEIGHT
@@ -60,6 +247,25 @@ enum HoverType {
 interface InputFeature {
   f: (x: number, y: number) => number;
   label?: string;
+}
+
+interface ParsedCSV {
+  columnNames: string[];
+  rows: number[][];
+  numRows: number;
+  numColumns: number;
+}
+
+interface DatasetMapping {
+  featureColumns: string[];
+  labelColumn: string;
+  data: DataPoint[];
+  problemType: Problem;
+}
+
+interface DataPoint {
+  features: number[];
+  label: number;
 }
 
 let INPUTS: {[name: string]: InputFeature} = {
@@ -72,9 +278,10 @@ let INPUTS: {[name: string]: InputFeature} = {
   "sinY": {f: (x, y) => Math.sin(y), label: "sin(X_2)"},
 };
 
+// Track available and active input features
+const ALL_INPUT_FEATURES = ["x", "y", "xSquared", "ySquared", "xTimesY", "sinX", "sinY"];
+
 let HIDABLE_CONTROLS = [
-  ["Show test data", "showTestData"],
-  ["Discretize output", "discretize"],
   ["Play button", "playButton"],
   ["Step button", "stepButton"],
   ["Reset button", "resetButton"],
@@ -150,13 +357,6 @@ state.getHiddenProps().forEach(prop => {
   }
 });
 
-let boundary: {[id: string]: number[][]} = {};
-let selectedNodeId: string = null;
-// Plot the heatmap.
-let xDomain: [number, number] = [-6, 6];
-let heatMap =
-    new HeatMap(300, DENSITY, xDomain, xDomain, d3.select("#heatmap"),
-        {showAxes: true});
 let linkWidthScale = d3.scale.linear()
   .domain([0, 5])
   .range([1, 10])
@@ -172,10 +372,630 @@ let network: nn.Node[][] = null;
 let lossTrain = 0;
 let lossTest = 0;
 let player = new Player();
-let lineChart = new AppendingLineChart(d3.select("#linechart"),
-    ["#777", "black"]);
+let lineChart: AppendingLineChart | null = null;
+
+function initLineChart() {
+  if (lineChart) {
+    return;
+  }
+  let container = d3.select("#linechart-bottom");
+  if (container.empty()) {
+    return;
+  }
+  lineChart = new AppendingLineChart(container, ["#777", "black"]);
+}
+
+let uploadedDataset: DatasetMapping | null = null;
+let isUsingUploadedData = false;
+
+let connectionEditMode = false;
+let disabledConnections: {[id: string]: boolean} = {};
+
+function clearDisabledConnections() {
+  disabledConnections = {};
+}
+
+// Initialize input features - only x and y active by default
+function initializeInputFeatures() {
+  ALL_INPUT_FEATURES.forEach(feature => {
+    if (feature === "x" || feature === "y") {
+      state[feature] = true;
+    } else {
+      state[feature] = false;
+    }
+  });
+}
+
+function setupInputFeatureControls() {
+  let lockedMessage = "Cannot change input features when using uploaded CSV. Upload a new CSV to select different features.";
+  d3.select("#add-input-button").on("click", () => {
+    if (isUsingUploadedData) {
+      alert(lockedMessage);
+      return;
+    }
+    addNextInputFeature();
+  });
+
+  d3.select("#remove-input-button").on("click", () => {
+    if (isUsingUploadedData) {
+      alert(lockedMessage);
+      return;
+    }
+    removeLastInputFeature();
+  });
+
+  // Existing controls (if present)
+  d3.select("#add-input-feature").on("click", () => {
+    if (isUsingUploadedData) {
+      alert(lockedMessage);
+      return;
+    }
+    addNextInputFeature();
+  });
+
+  d3.select("#remove-input-feature").on("click", () => {
+    if (isUsingUploadedData) {
+      alert(lockedMessage);
+      return;
+    }
+    removeLastInputFeature();
+  });
+  
+  updateInputFeatureButtons();
+}
+
+function addNextInputFeature() {
+  // Find next inactive feature
+  for (let feature of ALL_INPUT_FEATURES) {
+    if (!state[feature]) {
+      state[feature] = true;
+      parametersChanged = true;
+      reset();
+      updateInputFeatureButtons();
+      return;
+    }
+  }
+  // All features already active
+  console.log("All input features are already active");
+}
+
+function removeLastInputFeature() {
+  // Don't allow removing if only 1 feature left
+  let activeCount = ALL_INPUT_FEATURES.filter(f => state[f]).length;
+  if (activeCount <= 1) {
+    console.log("Cannot remove - at least 1 input feature required");
+    return;
+  }
+  
+  // Find last active feature and remove it
+  for (let i = ALL_INPUT_FEATURES.length - 1; i >= 0; i--) {
+    let feature = ALL_INPUT_FEATURES[i];
+    if (state[feature]) {
+      state[feature] = false;
+      parametersChanged = true;
+      reset();
+      updateInputFeatureButtons();
+      return;
+    }
+  }
+}
+
+function updateInputFeatureButtons() {
+  let activeCount = ALL_INPUT_FEATURES.filter(f => state[f]).length;
+  let allCount = ALL_INPUT_FEATURES.length;
+  
+  // Disable add button if all features active
+  d3.select("#add-input-feature")
+    .attr("disabled", activeCount >= allCount ? "disabled" : null);
+  
+  // Disable remove button if only 1 feature left
+  d3.select("#remove-input-feature")
+    .attr("disabled", activeCount <= 1 ? "disabled" : null);
+}
+
+function setupConnectionEditControls() {
+  let toggle = d3.select("#toggle-edit-connections");
+  if (!toggle.empty()) {
+    toggle.on("click", () => {
+      connectionEditMode = !connectionEditMode;
+      
+      if (connectionEditMode) {
+        enterEditMode();
+      } else {
+        exitEditMode();
+      }
+    });
+  }
+  
+  let resetBtn = d3.select("#reset-connections");
+  if (!resetBtn.empty()) {
+    resetBtn.on("click", () => {
+      if (confirm("Reset all connections to fully connected?")) {
+        clearDisabledConnections();
+        nn.resetAllConnections(network);
+        updateUI();
+        parametersChanged = true;
+
+        if (connectionEditMode) {
+          bindLinkClickHandlers();
+        }
+      }
+    });
+  }
+}
+
+function bindLinkClickHandlers() {
+  d3.selectAll("#network .link-hover").on("click", function() {
+    let linkId = d3.select(this).attr("data-link-id");
+    if (linkId) {
+      handleLinkClick(linkId);
+    }
+    (d3.event as Event).stopPropagation();
+  });
+}
+
+function enterEditMode() {
+  d3.select("body").classed("connection-edit-mode", true);
+  
+  let toggle = d3.select("#toggle-edit-connections");
+  if (!toggle.empty()) {
+    toggle
+      .classed("active", true)
+      .html('<i class="material-icons">done</i><span>Done Editing</span>');
+  }
+  
+  let resetBtn = d3.select("#reset-connections");
+  if (!resetBtn.empty()) {
+    resetBtn.style("display", "block");
+  }
+  
+  bindLinkClickHandlers();
+}
+
+function exitEditMode() {
+  d3.select("body").classed("connection-edit-mode", false);
+  
+  let toggle = d3.select("#toggle-edit-connections");
+  if (!toggle.empty()) {
+    toggle
+      .classed("active", false)
+      .html('<i class="material-icons">edit</i><span>Edit Connections</span>');
+  }
+  
+  let resetBtn = d3.select("#reset-connections");
+  if (!resetBtn.empty()) {
+    resetBtn.style("display", "none");
+  }
+  
+  // Remove link click handlers
+  d3.selectAll("#network .link-hover").on("click", null);
+}
+
+function applyDisabledConnectionsToNetwork() {
+  if (!network) {
+    return;
+  }
+  for (let layerIdx = 1; layerIdx < network.length; layerIdx++) {
+    let layer = network[layerIdx];
+    for (let i = 0; i < layer.length; i++) {
+      let node = layer[i];
+      for (let j = 0; j < node.inputLinks.length; j++) {
+        let link = node.inputLinks[j];
+        let id = `${link.source.id}-${link.dest.id}`;
+        link.isDisabled = !!disabledConnections[id];
+      }
+    }
+  }
+}
+
+function handleLinkClick(linkId: string) {
+  let parts = linkId.split("-");
+  if (parts.length < 2) {
+    return;
+  }
+  let sourceId = parts[0];
+  let destId = parts.slice(1).join("-");
+  
+  if (!nn.canToggleConnection(network, sourceId, destId)) {
+    alert("Cannot disable this connection - each neuron must have at least one active input connection.");
+    return;
+  }
+  
+  let isNowDisabled = nn.toggleConnection(network, sourceId, destId);
+  
+  if (isNowDisabled) {
+    disabledConnections[linkId] = true;
+  } else {
+    delete disabledConnections[linkId];
+  }
+  
+  updateUI();
+  parametersChanged = true;
+}
+
+function parseCSVLine(line: string): string[] {
+  let result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    let ch = line[i];
+    if (ch === "\"") {
+      if (inQuotes && i + 1 < line.length && line[i + 1] === "\"") {
+        current += "\"";
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === "," && !inQuotes) {
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function parseCSV(csvText: string): ParsedCSV {
+  let lines = csvText.split(/\r?\n/).filter(line => line.trim() !== "");
+  if (lines.length < 2) throw new Error("CSV must have header + data rows");
+  
+  let headers = parseCSVLine(lines[0]);
+  let allRows: string[][] = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    let values = parseCSVLine(lines[i]);
+    if (values.length < headers.length) {
+      while (values.length < headers.length) {
+        values.push("");
+      }
+    }
+    allRows.push(values);
+  }
+  
+  // Identify numeric columns using an 80% threshold.
+  let numericColumnIndices: number[] = [];
+  let numericColumnNames: string[] = [];
+  
+  for (let colIdx = 0; colIdx < headers.length; colIdx++) {
+    let numericCount = 0;
+    for (let i = 0; i < allRows.length; i++) {
+      let raw = (allRows[i][colIdx] || "").trim();
+      let val = parseFloat(raw);
+      if (!isNaN(val) && isFinite(val)) {
+        numericCount++;
+      }
+    }
+    let numericRatio = numericCount / allRows.length;
+    if (numericRatio >= 0.8) {
+      numericColumnIndices.push(colIdx);
+      numericColumnNames.push(headers[colIdx]);
+    }
+  }
+  
+  if (numericColumnNames.length < 2) {
+    let foundCols = numericColumnNames.length ? numericColumnNames.join(", ") : "none";
+    throw new Error(`Need at least 2 numeric columns (1 label + 1 feature). Found numeric columns: ${foundCols}`);
+  }
+  
+  let rows: number[][] = [];
+  for (let i = 0; i < allRows.length; i++) {
+    let row = allRows[i];
+    let numericRow: number[] = [];
+    for (let j = 0; j < numericColumnIndices.length; j++) {
+      let colIdx = numericColumnIndices[j];
+      let val = parseFloat((row[colIdx] || "").trim());
+      numericRow.push(isNaN(val) ? 0 : val);
+    }
+    rows.push(numericRow);
+  }
+  
+  return {
+    columnNames: numericColumnNames,
+    rows: rows,
+    numRows: rows.length,
+    numColumns: numericColumnNames.length
+  };
+}
+
+function scaleValue(value: number, oldMin: number, oldMax: number, newMin: number, newMax: number): number {
+  if (oldMax === oldMin) {
+    return (newMin + newMax) / 2;
+  }
+  return ((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin) + newMin;
+}
+
+function normalizeMultiDimensionalData(data: DataPoint[]): DataPoint[] {
+  let numFeatures = data[0].features.length;
+  
+  // Find min/max for each feature
+  let mins: number[] = [];
+  let maxs: number[] = [];
+  for (let i = 0; i < numFeatures; i++) {
+    mins.push(Infinity);
+    maxs.push(-Infinity);
+  }
+  
+  for (let point of data) {
+    for (let i = 0; i < numFeatures; i++) {
+      mins[i] = Math.min(mins[i], point.features[i]);
+      maxs[i] = Math.max(maxs[i], point.features[i]);
+    }
+  }
+  
+  // Normalize each feature to [-6, 6]
+  let normalized: DataPoint[] = [];
+  for (let point of data) {
+    let normalizedFeatures: number[] = [];
+    for (let i = 0; i < numFeatures; i++) {
+      let val = scaleValue(point.features[i], mins[i], maxs[i], -6, 6);
+      normalizedFeatures.push(val);
+    }
+    normalized.push({ features: normalizedFeatures, label: point.label });
+  }
+  
+  // Normalize labels
+  let labels = data.map(d => d.label);
+  let labelMin = Math.min(...labels);
+  let labelMax = Math.max(...labels);
+  
+  for (let i = 0; i < normalized.length; i++) {
+    normalized[i].label = scaleValue(data[i].label, labelMin, labelMax, -1, 1);
+  }
+  
+  return normalized;
+}
+
+function detectProblemType(labels: number[]): Problem {
+  let seen: {[key: string]: boolean} = {};
+  let uniqueCount = 0;
+  for (let i = 0; i < labels.length; i++) {
+    let key = String(labels[i]);
+    if (!seen[key]) {
+      seen[key] = true;
+      uniqueCount++;
+      if (uniqueCount > 10) {
+        return Problem.REGRESSION;
+      }
+    }
+  }
+  return Problem.CLASSIFICATION;
+}
+
+function discretizeLabels(data: DataPoint[]): DataPoint[] {
+  let seen: {[key: string]: boolean} = {};
+  let uniqueLabels: number[] = [];
+  for (let i = 0; i < data.length; i++) {
+    let label = data[i].label;
+    let key = String(label);
+    if (!seen[key]) {
+      seen[key] = true;
+      uniqueLabels.push(label);
+    }
+  }
+  uniqueLabels.sort((a, b) => a - b);
+  
+  if (uniqueLabels.length === 2) {
+    // Binary: map to -1 and 1
+    let [low, high] = uniqueLabels;
+    return data.map(d => ({
+      features: d.features,
+      label: d.label === low ? -1 : 1
+    }));
+  } else {
+    // Multi-class: threshold at 0
+    return data.map(d => ({
+      features: d.features,
+      label: d.label >= 0 ? 1 : -1
+    }));
+  }
+}
+
+function showFeatureSelector(parsed: ParsedCSV) {
+  let selector = d3.select("#feature-selector");
+  selector.style("display", "block");
+  selector.html("");
+  
+  selector.append("h4").text("Select Features and Label");
+  
+  // Label selection
+  selector.append("label").text("Target/Label Column:");
+  let labelSelect = selector.append("select").attr("id", "label-select");
+  parsed.columnNames.forEach(name => {
+    labelSelect.append("option").attr("value", name).text(name);
+  });
+  
+  selector.append("br");
+  selector.append("br");
+  
+  // Feature selection (checkboxes, max 10)
+  selector.append("label").text("Select Features (1-10):");
+  selector.append("div").attr("class", "feature-checkbox-container");
+  
+  let featureContainer = selector.select(".feature-checkbox-container");
+  
+  parsed.columnNames.forEach(name => {
+    let div = featureContainer.append("div").attr("class", "feature-checkbox-item");
+    let checkbox = div.append("input")
+      .attr("type", "checkbox")
+      .attr("id", "feature-" + name)
+      .attr("value", name)
+      .property("checked", true);
+    
+    div.append("label")
+      .attr("for", "feature-" + name)
+      .text(name);
+    
+    // Limit to 10 features
+    checkbox.on("change", function() {
+      let checkedCount = featureContainer.selectAll("input:checked").size();
+      if (checkedCount > 10) {
+        this.checked = false;
+        alert("Maximum 10 features allowed");
+      }
+    });
+  });
+  
+  selector.append("br");
+  
+  selector.append("button")
+    .attr("class", "basic-button")
+    .text("Use This Data")
+    .on("click", () => applyCSVData(parsed));
+  
+  d3.select("#csv-upload-status").text(`Loaded ${parsed.numRows} rows, ${parsed.numColumns} numeric columns`);
+}
+
+function applyCSVData(parsed: ParsedCSV) {
+  let labelColumn = (d3.select("#label-select").node() as HTMLSelectElement).value;
+  
+  let selectedFeatures: string[] = [];
+  d3.selectAll(".feature-checkbox-container input:checked").each(function() {
+    let name = (this as HTMLInputElement).value;
+    if (name !== labelColumn) {
+      selectedFeatures.push(name);
+    }
+  });
+  
+  if (selectedFeatures.length === 0) {
+    alert("Please select at least 1 feature");
+    return;
+  }
+  
+  if (selectedFeatures.length > 10) {
+    alert("Maximum 10 features allowed");
+    return;
+  }
+  
+  // Build dataset
+  let labelIdx = parsed.columnNames.indexOf(labelColumn);
+  let featureIndices = selectedFeatures.map(f => parsed.columnNames.indexOf(f));
+  
+  let dataPoints: DataPoint[] = [];
+  for (let row of parsed.rows) {
+    let features = featureIndices.map(idx => row[idx]);
+    let label = row[labelIdx];
+    dataPoints.push({ features, label });
+  }
+  
+  // Normalize features
+  let normalized = normalizeMultiDimensionalData(dataPoints);
+  
+  // Detect problem type
+  let labels = normalized.map(d => d.label);
+  let problemType = detectProblemType(labels);
+  
+  if (problemType === Problem.CLASSIFICATION) {
+    normalized = discretizeLabels(normalized);
+  }
+  
+  uploadedDataset = {
+    featureColumns: selectedFeatures,
+    labelColumn: labelColumn,
+    data: normalized,
+    problemType: problemType
+  };
+  
+  state.problem = problemType;
+  isUsingUploadedData = true;
+  
+  d3.select("#problem").property("value", getKeyFromValue(problems, problemType));
+  d3.select("#feature-selector").style("display", "none");
+  d3.select("#csv-upload-status").html(`<strong>Dataset loaded:</strong> ${selectedFeatures.length} features, ${normalized.length} samples`);
+  d3.select("#csv-upload-status-display").html(`
+    <p><strong>Dataset Loaded</strong></p>
+    <p>${selectedFeatures.length} features, ${normalized.length} samples</p>
+    <p>Type: ${problemType === Problem.CLASSIFICATION ? "Classification" : "Regression"}</p>
+  `);
+  d3.select("#view-predictions-btn").style("display", "block");
+  
+  reset();
+}
+
+
+function generateDataFromUpload() {
+  if (!uploadedDataset) return;
+  
+  shuffle(uploadedDataset.data);
+  
+  let splitIndex = Math.floor(uploadedDataset.data.length * state.percTrainData / 100);
+  let trainPoints = uploadedDataset.data.slice(0, splitIndex);
+  let testPoints = uploadedDataset.data.slice(splitIndex);
+  
+  // Convert to old Example2D format for compatibility (use first 2 features as x, y for display only)
+  trainData = trainPoints.map(p => ({
+    x: p.features[0] || 0,
+    y: p.features[1] || 0,
+    label: p.label
+  }));
+  
+  testData = testPoints.map(p => ({
+    x: p.features[0] || 0,
+    y: p.features[1] || 0,
+    label: p.label
+  }));
+}
+
+function setupCSVUpload() {
+  d3.select("#csv-upload-input").on("change", function() {
+    let fileList = (this as HTMLInputElement).files;
+    if (!fileList || fileList.length === 0) {
+      return;
+    }
+    let file = fileList[0];
+
+    let reader = new FileReader();
+    reader.onload = function() {
+      try {
+        let csvText = reader.result as string;
+        let parsed = parseCSV(csvText);
+        showFeatureSelector(parsed);
+      } catch (error) {
+        let message = (error instanceof Error) ? error.message : String(error);
+        alert("Error: " + message);
+      }
+    };
+    reader.readAsText(file);
+  });
+}
 
 function makeGUI() {
+  // Initialize landing and tour FIRST
+  initializeLandingAndTour();
+
+  d3.select("#restart-tour-btn").on("click", () => {
+    startTour();
+  });
+
+  d3.select("#toggle-article-btn").on("click", function() {
+    let article = d3.select("#article-text");
+    let btn = d3.select(this);
+
+    if (article.style("display") === "none") {
+      article.style("display", "block");
+      btn.classed("expanded", true);
+      btn.html('<i class="material-icons">expand_less</i> Hide Details');
+    } else {
+      article.style("display", "none");
+      btn.classed("expanded", false);
+      btn.html('<i class="material-icons">expand_more</i> Learn More About Neural Networks');
+    }
+  });
+
+  // Initialize input features
+  initializeInputFeatures();
+  
+  // Setup input feature controls
+  setupInputFeatureControls();
+
+  // Setup connection edit controls
+  setupConnectionEditControls();
+
+  // Setup CSV upload controls
+  setupCSVUpload();
+  initLineChart();
+  
   d3.select("#reset-button").on("click", () => {
     reset();
     userHasInteracted();
@@ -190,6 +1010,14 @@ function makeGUI() {
 
   player.onPlayPause(isPlaying => {
     d3.select("#play-pause-button").classed("playing", isPlaying);
+    d3.select("#play-pause-button-toolbar").classed("playing", isPlaying);
+    if (isPlaying) {
+      d3.select("#play-pause-button-toolbar")
+        .html('<i class="material-icons">pause</i> Pause');
+    } else {
+      d3.select("#play-pause-button-toolbar")
+        .html('<i class="material-icons">play_arrow</i> Play');
+    }
   });
 
   d3.select("#next-step-button").on("click", () => {
@@ -205,44 +1033,6 @@ function makeGUI() {
     generateData();
     parametersChanged = true;
   });
-
-  let dataThumbnails = d3.selectAll("canvas[data-dataset]");
-  dataThumbnails.on("click", function() {
-    let newDataset = datasets[this.dataset.dataset];
-    if (newDataset === state.dataset) {
-      return; // No-op.
-    }
-    state.dataset =  newDataset;
-    dataThumbnails.classed("selected", false);
-    d3.select(this).classed("selected", true);
-    generateData();
-    parametersChanged = true;
-    reset();
-  });
-
-  let datasetKey = getKeyFromValue(datasets, state.dataset);
-  // Select the dataset according to the current state.
-  d3.select(`canvas[data-dataset=${datasetKey}]`)
-    .classed("selected", true);
-
-  let regDataThumbnails = d3.selectAll("canvas[data-regDataset]");
-  regDataThumbnails.on("click", function() {
-    let newDataset = regDatasets[this.dataset.regdataset];
-    if (newDataset === state.regDataset) {
-      return; // No-op.
-    }
-    state.regDataset =  newDataset;
-    regDataThumbnails.classed("selected", false);
-    d3.select(this).classed("selected", true);
-    generateData();
-    parametersChanged = true;
-    reset();
-  });
-
-  let regDatasetKey = getKeyFromValue(regDatasets, state.regDataset);
-  // Select the dataset according to the current state.
-  d3.select(`canvas[data-regDataset=${regDatasetKey}]`)
-    .classed("selected", true);
 
   d3.select("#add-layers").on("click", () => {
     if (state.numHiddenLayers >= 6) {
@@ -264,120 +1054,279 @@ function makeGUI() {
     reset();
   });
 
-  let showTestData = d3.select("#show-test-data").on("change", function() {
-    state.showTestData = this.checked;
-    state.serialize();
-    userHasInteracted();
-    heatMap.updateTestPoints(state.showTestData ? testData : []);
-  });
-  // Check/uncheck the checkbox according to the current state.
-  showTestData.property("checked", state.showTestData);
-
-  let discretize = d3.select("#discretize").on("change", function() {
-    state.discretize = this.checked;
-    state.serialize();
-    userHasInteracted();
-    updateUI();
-  });
-  // Check/uncheck the checbox according to the current state.
-  discretize.property("checked", state.discretize);
-
-  let percTrain = d3.select("#percTrainData").on("input", function() {
-    state.percTrainData = this.value;
-    d3.select("label[for='percTrainData'] .value").text(this.value);
-    generateData();
-    parametersChanged = true;
-    reset();
-  });
-  percTrain.property("value", state.percTrainData);
-  d3.select("label[for='percTrainData'] .value").text(state.percTrainData);
-
-  let noise = d3.select("#noise").on("input", function() {
-    state.noise = this.value;
-    d3.select("label[for='noise'] .value").text(this.value);
-    generateData();
-    parametersChanged = true;
-    reset();
-  });
-  let currentMax = parseInt(noise.property("max"));
-  if (state.noise > currentMax) {
-    if (state.noise <= 80) {
-      noise.property("max", state.noise);
-    } else {
-      state.noise = 50;
-    }
-  } else if (state.noise < 0) {
-    state.noise = 0;
+  let percTrain = d3.select("#percTrainData");
+  if (!percTrain.empty()) {
+    percTrain.on("input", function() {
+      state.percTrainData = this.value;
+      d3.select("label[for='percTrainData'] .value").text(this.value);
+      generateData();
+      parametersChanged = true;
+      reset();
+    });
+    percTrain.property("value", state.percTrainData);
+    d3.select("label[for='percTrainData'] .value").text(state.percTrainData);
   }
-  noise.property("value", state.noise);
-  d3.select("label[for='noise'] .value").text(state.noise);
 
-  let batchSize = d3.select("#batchSize").on("input", function() {
-    state.batchSize = this.value;
-    d3.select("label[for='batchSize'] .value").text(this.value);
-    parametersChanged = true;
+  let noise = d3.select("#noise");
+  if (!noise.empty()) {
+    noise.on("input", function() {
+      state.noise = this.value;
+      d3.select("label[for='noise'] .value").text(this.value);
+      generateData();
+      parametersChanged = true;
+      reset();
+    });
+    let currentMax = parseInt(noise.property("max"));
+    if (state.noise > currentMax) {
+      if (state.noise <= 80) {
+        noise.property("max", state.noise);
+      } else {
+        state.noise = 50;
+      }
+    } else if (state.noise < 0) {
+      state.noise = 0;
+    }
+    noise.property("value", state.noise);
+    d3.select("label[for='noise'] .value").text(state.noise);
+  }
+
+  let batchSize = d3.select("#batchSize");
+  if (!batchSize.empty()) {
+    batchSize.on("input", function() {
+      state.batchSize = this.value;
+      d3.select("label[for='batchSize'] .value").text(this.value);
+      parametersChanged = true;
+      reset();
+    });
+    batchSize.property("value", state.batchSize);
+    d3.select("label[for='batchSize'] .value").text(state.batchSize);
+  }
+
+  let activationDropdown = d3.select("#activations");
+  if (!activationDropdown.empty()) {
+    activationDropdown.on("change", function() {
+      state.activation = activations[this.value];
+      parametersChanged = true;
+      reset();
+    });
+    activationDropdown.property("value",
+        getKeyFromValue(activations, state.activation));
+  }
+
+  let learningRate = d3.select("#learningRate");
+  if (!learningRate.empty()) {
+    learningRate.on("change", function() {
+      state.learningRate = +this.value;
+      state.serialize();
+      userHasInteracted();
+      parametersChanged = true;
+    });
+    learningRate.property("value", state.learningRate);
+  }
+
+  let regularDropdown = d3.select("#regularizations");
+  if (!regularDropdown.empty()) {
+    regularDropdown.on("change", function() {
+      state.regularization = regularizations[this.value];
+      parametersChanged = true;
+      reset();
+    });
+    regularDropdown.property("value",
+        getKeyFromValue(regularizations, state.regularization));
+  }
+
+  let regularRate = d3.select("#regularRate");
+  if (!regularRate.empty()) {
+    regularRate.on("change", function() {
+      state.regularizationRate = +this.value;
+      parametersChanged = true;
+      reset();
+    });
+    regularRate.property("value", state.regularizationRate);
+  }
+
+  let problem = d3.select("#problem");
+  if (!problem.empty()) {
+    problem.on("change", function() {
+      state.problem = problems[this.value];
+      generateData();
+      parametersChanged = true;
+      reset();
+    });
+    problem.property("value", getKeyFromValue(problems, state.problem));
+  }
+
+  // Wire up toolbar controls (in addition to existing controls)
+  d3.select("#reset-button-toolbar").on("click", () => {
     reset();
+    userHasInteracted();
   });
-  batchSize.property("value", state.batchSize);
-  d3.select("label[for='batchSize'] .value").text(state.batchSize);
 
-  let activationDropdown = d3.select("#activations").on("change", function() {
-    state.activation = activations[this.value];
-    parametersChanged = true;
-    reset();
+  d3.select("#play-pause-button-toolbar").on("click", function () {
+    userHasInteracted();
+    player.playOrPause();
   });
-  activationDropdown.property("value",
-      getKeyFromValue(activations, state.activation));
 
-  let learningRate = d3.select("#learningRate").on("change", function() {
+  d3.select("#next-step-button-toolbar").on("click", () => {
+    player.pause();
+    userHasInteracted();
+    if (iter === 0) {
+      simulationStarted();
+    }
+    oneStep();
+  });
+
+  d3.select("#learningRate-toolbar").on("change", function() {
     state.learningRate = +this.value;
     state.serialize();
     userHasInteracted();
     parametersChanged = true;
+    let oldControl = d3.select("#learningRate").node();
+    if (oldControl) {
+      d3.select("#learningRate").property("value", this.value);
+    }
   });
-  learningRate.property("value", state.learningRate);
 
-  let regularDropdown = d3.select("#regularizations").on("change",
-      function() {
+  d3.select("#activations-toolbar").on("change", function() {
+    state.activation = activations[this.value];
+    parametersChanged = true;
+    reset();
+    let oldControl = d3.select("#activations").node();
+    if (oldControl) {
+      d3.select("#activations").property("value", this.value);
+    }
+  });
+
+  d3.select("#regularizations-toolbar").on("change", function() {
     state.regularization = regularizations[this.value];
     parametersChanged = true;
     reset();
+    let oldControl = d3.select("#regularizations").node();
+    if (oldControl) {
+      d3.select("#regularizations").property("value", this.value);
+    }
   });
-  regularDropdown.property("value",
-      getKeyFromValue(regularizations, state.regularization));
 
-  let regularRate = d3.select("#regularRate").on("change", function() {
+  d3.select("#regularRate-toolbar").on("change", function() {
     state.regularizationRate = +this.value;
     parametersChanged = true;
     reset();
+    let oldControl = d3.select("#regularRate").node();
+    if (oldControl) {
+      d3.select("#regularRate").property("value", this.value);
+    }
   });
-  regularRate.property("value", state.regularizationRate);
 
-  let problem = d3.select("#problem").on("change", function() {
+  d3.select("#problem-toolbar").on("change", function() {
     state.problem = problems[this.value];
     generateData();
-    drawDatasetThumbnails();
+    parametersChanged = true;
+    reset();
+    let oldControl = d3.select("#problem").node();
+    if (oldControl) {
+      d3.select("#problem").property("value", this.value);
+    }
+  });
+
+  d3.select("#add-layers-toolbar").on("click", () => {
+    if (state.numHiddenLayers >= 6) {
+      alert("Maximum 6 hidden layers allowed");
+      return;
+    }
+    state.networkShape[state.numHiddenLayers] = 2;
+    state.numHiddenLayers++;
     parametersChanged = true;
     reset();
   });
-  problem.property("value", getKeyFromValue(problems, state.problem));
 
-  // Add scale to the gradient color map.
-  let x = d3.scale.linear().domain([-1, 1]).range([0, 144]);
-  let xAxis = d3.svg.axis()
-    .scale(x)
-    .orient("bottom")
-    .tickValues([-1, 0, 1])
-    .tickFormat(d3.format("d"));
-  d3.select("#colormap g.core").append("g")
-    .attr("class", "x axis")
-    .attr("transform", "translate(0,10)")
-    .call(xAxis);
+  d3.select("#remove-layers-toolbar").on("click", () => {
+    if (state.numHiddenLayers <= 0) {
+      alert("Must have at least 1 hidden layer");
+      return;
+    }
+    state.numHiddenLayers--;
+    state.networkShape.splice(state.numHiddenLayers);
+    parametersChanged = true;
+    reset();
+  });
+
+  d3.select("#toggle-edit-connections-toolbar").on("click", () => {
+    let existingBtn = d3.select("#toggle-edit-connections").node() as HTMLButtonElement | null;
+    if (existingBtn) {
+      existingBtn.click();
+    } else {
+      connectionEditMode = !connectionEditMode;
+      if (connectionEditMode) {
+        enterEditMode();
+      } else {
+        exitEditMode();
+      }
+    }
+  });
+
+  // Sliders in bottom panel
+  d3.select("#batchSize-slider").on("input", function() {
+    state.batchSize = +this.value;
+    d3.select("#batch-display").text(this.value);
+    let oldControl = d3.select("#batchSize").node();
+    if (oldControl) {
+      d3.select("#batchSize").property("value", this.value);
+    }
+    parametersChanged = true;
+    reset();
+  });
+
+  d3.select("#noise-slider").on("input", function() {
+    state.noise = +this.value;
+    d3.select("#noise-display").text(this.value);
+    let oldControl = d3.select("#noise").node();
+    if (oldControl) {
+      d3.select("#noise").property("value", this.value);
+    }
+    generateData();
+    parametersChanged = true;
+    reset();
+  });
+
+  d3.select("#percTrainData-slider").on("input", function() {
+    state.percTrainData = +this.value;
+    d3.select("#split-display").text(this.value);
+    let oldControl = d3.select("#percTrainData").node();
+    if (oldControl) {
+      d3.select("#percTrainData").property("value", this.value);
+    }
+    generateData();
+    parametersChanged = true;
+    reset();
+  });
+
+  d3.select("#data-regen-button-bottom").on("click", () => {
+    generateData();
+    parametersChanged = true;
+  });
+
+  // View predictions modal
+  d3.select("#view-predictions-btn").on("click", () => {
+    d3.select("#prediction-modal").style("display", "flex");
+  });
+
+  d3.select("#close-modal-btn").on("click", () => {
+    d3.select("#prediction-modal").style("display", "none");
+  });
+
+  // Initialize slider displays
+  d3.select("#batch-display").text(state.batchSize);
+  d3.select("#noise-display").text(state.noise);
+  d3.select("#split-display").text(state.percTrainData);
+
+  d3.select("#batchSize-slider").property("value", state.batchSize);
+  d3.select("#noise-slider").property("value", state.noise);
+  d3.select("#percTrainData-slider").property("value", state.percTrainData);
 
   // Listen for css-responsive changes and redraw the svg network.
 
   window.addEventListener("resize", () => {
-    let newWidth = document.querySelector("#main-part")
+    let newWidth = document.querySelector("#main-part-redesign")
         .getBoundingClientRect().width;
     if (newWidth !== mainWidth) {
       mainWidth = newWidth;
@@ -392,11 +1341,33 @@ function makeGUI() {
     d3.select("div.more").style("display", "none");
     d3.select("header").style("display", "none");
   }
+
+  // Initialize scroll effects
+  initializeScrollEffects();
+}
+
+function initializeScrollEffects() {
+  let toolbar = d3.select("#top-toolbar");
+  window.addEventListener("scroll", () => {
+    if (window.scrollY > 50) {
+      toolbar.classed("scrolled", true);
+    } else {
+      toolbar.classed("scrolled", false);
+    }
+  });
 }
 
 function updateBiasesUI(network: nn.Node[][]) {
   nn.forEachNode(network, true, node => {
     d3.select(`rect#bias-${node.id}`).style("fill", colorScale(node.bias));
+  });
+}
+
+function updateNeuronColors(network: nn.Node[][]) {
+  nn.forEachNode(network, true, node => {
+    // Color main neuron rectangle based on output value.
+    d3.select(`#node${node.id} > rect:first-child`)
+      .style("fill", colorScale(node.output || 0));
   });
 }
 
@@ -409,6 +1380,7 @@ function updateWeightsUI(network: nn.Node[][], container) {
       for (let j = 0; j < node.inputLinks.length; j++) {
         let link = node.inputLinks[j];
         container.select(`#link${link.source.id}-${link.dest.id}`)
+            .classed("disabled", !!link.isDisabled)
             .style({
               "stroke-dashoffset": -iter / 3,
               "stroke-width": linkWidthScale(Math.abs(link.weight)),
@@ -422,6 +1394,14 @@ function updateWeightsUI(network: nn.Node[][], container) {
 
 function drawNode(cx: number, cy: number, nodeId: string, isInput: boolean,
     container, node?: nn.Node) {
+  let isUploadedInput = isUsingUploadedData && uploadedDataset != null;
+  let inputIsActive = isUploadedInput ? true : !!state[nodeId];
+  
+  // Skip drawing if this is an inactive input feature
+  if (isInput && !inputIsActive) {
+    return; // Don't draw anything for inactive features
+  }
+  
   let x = cx - RECT_SIZE / 2;
   let y = cy - RECT_SIZE / 2;
 
@@ -440,10 +1420,20 @@ function drawNode(cx: number, cy: number, nodeId: string, isInput: boolean,
       width: RECT_SIZE,
       height: RECT_SIZE,
     });
-  let activeOrNotClass = state[nodeId] ? "active" : "inactive";
+    
+  let activeOrNotClass = inputIsActive ? "active" : "inactive";
+  
   if (isInput) {
-    let label = INPUTS[nodeId].label != null ?
-        INPUTS[nodeId].label : nodeId;
+    let label: string;
+    if (isUsingUploadedData) {
+      // Show actual feature names from CSV.
+      label = nodeId;
+    } else {
+      // Original behavior.
+      let inputFeature = INPUTS[nodeId];
+      label = (inputFeature != null && inputFeature.label != null) ?
+          inputFeature.label : nodeId;
+    }
     // Draw the input label.
     let text = nodeGroup.append("text").attr({
       class: "main-label",
@@ -475,6 +1465,7 @@ function drawNode(cx: number, cy: number, nodeId: string, isInput: boolean,
     }
     nodeGroup.classed(activeOrNotClass, true);
   }
+  
   if (!isInput) {
     // Draw the node's bias.
     nodeGroup.append("rect")
@@ -491,47 +1482,29 @@ function drawNode(cx: number, cy: number, nodeId: string, isInput: boolean,
       });
   }
 
-  // Draw the node's canvas.
-  let div = d3.select("#network").insert("div", ":first-child")
-    .attr({
-      "id": `canvas-${nodeId}`,
-      "class": "canvas"
-    })
-    .style({
-      position: "absolute",
-      left: `${x + 3}px`,
-      top: `${y + 3}px`
-    })
-    .on("mouseenter", function() {
-      selectedNodeId = nodeId;
-      div.classed("hovered", true);
-      nodeGroup.classed("hovered", true);
-      updateDecisionBoundary(network, false);
-      heatMap.updateBackground(boundary[nodeId], state.discretize);
-    })
-    .on("mouseleave", function() {
-      selectedNodeId = null;
-      div.classed("hovered", false);
-      nodeGroup.classed("hovered", false);
-      updateDecisionBoundary(network, false);
-      heatMap.updateBackground(boundary[nn.getOutputNode(network).id],
-          state.discretize);
-    });
-  if (isInput) {
-    div.on("click", function() {
-      state[nodeId] = !state[nodeId];
-      parametersChanged = true;
-      reset();
-    });
-    div.style("cursor", "pointer");
+  // Draw the node's canvas - only for active input features
+  if (!isInput || inputIsActive) {
+    let div = d3.select("#network").insert("div", ":first-child")
+      .attr({
+        "id": `canvas-${nodeId}`,
+        "class": "canvas"
+      })
+      .style({
+        position: "absolute",
+        left: `${x + 3}px`,
+        top: `${y + 3}px`
+      });
+      
+    if (isInput) {
+      div.style("cursor", "default"); // Remove click functionality for input nodes
+    }
+    
+    if (isInput) {
+      div.classed(activeOrNotClass, true);
+    }
+    
+    div.datum({id: nodeId});
   }
-  if (isInput) {
-    div.classed(activeOrNotClass, true);
-  }
-  let nodeHeatMap = new HeatMap(RECT_SIZE, DENSITY / 10, xDomain,
-      xDomain, div, {noSvg: true});
-  div.datum({heatmap: nodeHeatMap, id: nodeId});
-
 }
 
 // Draw network
@@ -545,9 +1518,8 @@ function drawNetwork(network: nn.Node[][]): void {
 
   // Get the width of the svg container.
   let padding = 3;
-  let co = d3.select(".column.output").node() as HTMLDivElement;
-  let cf = d3.select(".column.features").node() as HTMLDivElement;
-  let width = co.offsetLeft - cf.offsetLeft;
+  let containerNode = d3.select("#network-container").node() as HTMLDivElement;
+  let width = containerNode ? containerNode.clientWidth - padding * 2 : 800;
   svg.attr("width", width);
 
   // Map of all node coordinates.
@@ -561,7 +1533,7 @@ function drawNetwork(network: nn.Node[][]): void {
   let layerScale = d3.scale.ordinal<number, number>()
       .domain(d3.range(1, numLayers - 1))
       .rangePoints([featureWidth, width - RECT_SIZE], 0.7);
-  let nodeIndexScale = (nodeIndex: number) => nodeIndex * (RECT_SIZE + 25);
+  let nodeIndexScale = (nodeIndex: number) => nodeIndex * (RECT_SIZE + 40);
 
 
   let calloutThumb = d3.select(".callout.thumbnail").style("display", "none");
@@ -569,11 +1541,17 @@ function drawNetwork(network: nn.Node[][]): void {
   let idWithCallout = null;
   let targetIdWithCallout = null;
 
-  // Draw the input layer separately.
+  // Draw the input layer separately - only active features
   let cx = RECT_SIZE / 2 + 50;
-  let nodeIds = Object.keys(INPUTS);
-  let maxY = nodeIndexScale(nodeIds.length);
-  nodeIds.forEach((nodeId, i) => {
+  let nodeIds = isUsingUploadedData && uploadedDataset != null ?
+      uploadedDataset.featureColumns : Object.keys(INPUTS);
+  
+  // Filter to only active features
+  let activeNodeIds = (isUsingUploadedData && uploadedDataset != null) ?
+      nodeIds : nodeIds.filter(nodeId => state[nodeId]);
+  
+  let maxY = nodeIndexScale(activeNodeIds.length);
+  activeNodeIds.forEach((nodeId, i) => {
     let cy = nodeIndexScale(i) + RECT_SIZE / 2;
     node2coord[nodeId] = {cx, cy};
     drawNode(cx, cy, nodeId, true, container);
@@ -644,62 +1622,62 @@ function drawNetwork(network: nn.Node[][]): void {
   }
   // Adjust the height of the svg.
   svg.attr("height", maxY);
+  svg.attr("viewBox", `0 0 ${width} ${maxY}`);
+  svg.attr("preserveAspectRatio", "xMidYMid meet");
 
-  // Adjust the height of the features column.
-  let height = Math.max(
-    getRelativeHeight(calloutThumb),
-    getRelativeHeight(calloutWeights),
-    getRelativeHeight(d3.select("#network"))
-  );
-  d3.select(".column.features").style("height", height + "px");
+  // Legacy layout height adjustment no longer applies in redesigned UI.
 }
 
 function getRelativeHeight(selection) {
-  let node = selection.node() as HTMLAnchorElement;
+  let node = selection.node() as HTMLAnchorElement | null;
+  if (!node) {
+    return 0;
+  }
   return node.offsetHeight + node.offsetTop;
 }
 
 function addPlusMinusControl(x: number, layerIdx: number) {
   let div = d3.select("#network").append("div")
     .classed("plus-minus-neurons", true)
-    .style("left", `${x - 10}px`);
+    .style("left", `${x}px`); // Centered with transform in CSS
 
   let i = layerIdx - 1;
-  let firstRow = div.append("div").attr("class", `ui-numNodes${layerIdx}`);
-  firstRow.append("button")
-      .attr("class", "mdl-button mdl-js-button mdl-button--icon")
-      .on("click", () => {
-        let numNeurons = state.networkShape[i];
-        if (numNeurons >= 8) {
-          return;
-        }
-        state.networkShape[i]++;
-        parametersChanged = true;
-        reset();
-      })
-    .append("i")
-      .attr("class", "material-icons")
-      .text("add");
+  
+  // Add neuron control buttons
+  let buttonContainer = div.append("div")
+    .attr("class", "neuron-controls");
+  
+  buttonContainer.append("button")
+    .attr("class", "neuron-control-button add-button")
+    .on("click", () => {
+      let numNeurons = state.networkShape[i];
+      if (numNeurons >= 8) {
+        return;
+      }
+      state.networkShape[i]++;
+      parametersChanged = true;
+      reset();
+    })
+    .html('<i class="material-icons">add</i><span>Add Neuron</span>');
 
-  firstRow.append("button")
-      .attr("class", "mdl-button mdl-js-button mdl-button--icon")
-      .on("click", () => {
-        let numNeurons = state.networkShape[i];
-        if (numNeurons <= 1) {
-          return;
-        }
-        state.networkShape[i]--;
-        parametersChanged = true;
-        reset();
-      })
-    .append("i")
-      .attr("class", "material-icons")
-      .text("remove");
+  buttonContainer.append("button")
+    .attr("class", "neuron-control-button remove-button")
+    .on("click", () => {
+      let numNeurons = state.networkShape[i];
+      if (numNeurons <= 1) {
+        return;
+      }
+      state.networkShape[i]--;
+      parametersChanged = true;
+      reset();
+    })
+    .html('<i class="material-icons">remove</i><span>Remove Neuron</span>');
 
+  // Neuron count display
   let suffix = state.networkShape[i] > 1 ? "s" : "";
-  div.append("div").text(
-    state.networkShape[i] + " neuron" + suffix
-  );
+  div.append("div")
+    .attr("class", "neuron-count")
+    .text(state.networkShape[i] + " neuron" + suffix);
 }
 
 function updateHoverCard(type: HoverType, nodeOrLink?: nn.Node | nn.Link,
@@ -779,6 +1757,7 @@ function drawLink(
   container.append("path")
     .attr("d", diagonal(datum, 0))
     .attr("class", "link-hover")
+    .attr("data-link-id", `${input.source.id}-${input.dest.id}`)
     .on("mouseenter", function() {
       updateHoverCard(HoverType.WEIGHT, input, d3.mouse(this));
     }).on("mouseleave", function() {
@@ -787,65 +1766,73 @@ function drawLink(
   return line;
 }
 
-/**
- * Given a neural network, it asks the network for the output (prediction)
- * of every node in the network using inputs sampled on a square grid.
- * It returns a map where each key is the node ID and the value is a square
- * matrix of the outputs of the network for each input in the grid respectively.
- */
-function updateDecisionBoundary(network: nn.Node[][], firstTime: boolean) {
-  if (firstTime) {
-    boundary = {};
-    nn.forEachNode(network, true, node => {
-      boundary[node.id] = new Array(DENSITY);
-    });
-    // Go through all predefined inputs.
-    for (let nodeId in INPUTS) {
-      boundary[nodeId] = new Array(DENSITY);
-    }
-  }
-  let xScale = d3.scale.linear().domain([0, DENSITY - 1]).range(xDomain);
-  let yScale = d3.scale.linear().domain([DENSITY - 1, 0]).range(xDomain);
-
-  let i = 0, j = 0;
-  for (i = 0; i < DENSITY; i++) {
-    if (firstTime) {
-      nn.forEachNode(network, true, node => {
-        boundary[node.id][i] = new Array(DENSITY);
-      });
-      // Go through all predefined inputs.
-      for (let nodeId in INPUTS) {
-        boundary[nodeId][i] = new Array(DENSITY);
-      }
-    }
-    for (j = 0; j < DENSITY; j++) {
-      // 1 for points inside the circle, and 0 for points outside the circle.
-      let x = xScale(i);
-      let y = yScale(j);
-      let input = constructInput(x, y);
-      nn.forwardProp(network, input);
-      nn.forEachNode(network, true, node => {
-        boundary[node.id][i][j] = node.output;
-      });
-      if (firstTime) {
-        // Go through all predefined inputs.
-        for (let nodeId in INPUTS) {
-          boundary[nodeId][i][j] = INPUTS[nodeId].f(x, y);
-        }
-      }
-    }
-  }
-}
-
 function getLoss(network: nn.Node[][], dataPoints: Example2D[]): number {
   let loss = 0;
   for (let i = 0; i < dataPoints.length; i++) {
-    let dataPoint = dataPoints[i];
-    let input = constructInput(dataPoint.x, dataPoint.y);
+    let uploadedPoint = (isUsingUploadedData && uploadedDataset != null) ?
+        uploadedDataset.data[i % uploadedDataset.data.length] : null;
+    let input = constructInput(dataPoints[i].x, dataPoints[i].y, uploadedPoint);
     let output = nn.forwardProp(network, input);
-    loss += nn.Errors.SQUARE.error(output, dataPoint.label);
+    loss += nn.Errors.SQUARE.error(output, dataPoints[i].label);
   }
   return loss / dataPoints.length;
+}
+
+function updatePredictionTable() {
+  if (!isUsingUploadedData || uploadedDataset == null || testData.length === 0) {
+    d3.select("#prediction-results").style("display", "none");
+    return;
+  }
+  
+  d3.select("#prediction-results").style("display", "block");
+  
+  let predictions: {predicted: number, actual: number, match: boolean}[] = [];
+  let correct = 0;
+  
+  for (let i = 0; i < testData.length; i++) {
+    let dataPoint = uploadedDataset.data[trainData.length + i];
+    let input = constructInput(testData[i].x, testData[i].y, dataPoint);
+    let output = nn.forwardProp(network, input);
+    let actual = testData[i].label;
+    
+    let predictedClass = output >= 0 ? 1 : -1;
+    let actualClass = actual >= 0 ? 1 : -1;
+    let match = predictedClass === actualClass;
+    
+    if (match) correct++;
+    
+    predictions.push({
+      predicted: output,
+      actual: actual,
+      match: match
+    });
+  }
+  
+  let accuracy = (correct / testData.length * 100).toFixed(1);
+  d3.select("#accuracy-display").html(`<strong>Accuracy:</strong> ${accuracy}% (${correct}/${testData.length} correct)`);
+  
+  // Show first 10 predictions
+  let tbody = d3.select("#prediction-tbody");
+  tbody.html("");
+  
+  let displayCount = Math.min(10, predictions.length);
+  for (let i = 0; i < displayCount; i++) {
+    let row = tbody.append("tr");
+    row.append("td").text(i + 1);
+    row.append("td").text(predictions[i].predicted.toFixed(3));
+    row.append("td").text(predictions[i].actual.toFixed(3));
+    row.append("td")
+      .attr("class", predictions[i].match ? "match-correct" : "match-incorrect")
+      .text(predictions[i].match ? "✓" : "✗");
+  }
+  
+  if (predictions.length > 10) {
+    d3.select("#show-all-predictions")
+      .style("display", "block")
+      .text(`Show All ${predictions.length} Predictions`);
+  } else {
+    d3.select("#show-all-predictions").style("display", "none");
+  }
 }
 
 function updateUI(firstStep = false) {
@@ -853,18 +1840,7 @@ function updateUI(firstStep = false) {
   updateWeightsUI(network, d3.select("g.core"));
   // Update the bias values visually.
   updateBiasesUI(network);
-  // Get the decision boundary of the network.
-  updateDecisionBoundary(network, firstStep);
-  let selectedId = selectedNodeId != null ?
-      selectedNodeId : nn.getOutputNode(network).id;
-  heatMap.updateBackground(boundary[selectedId], state.discretize);
-
-  // Update all decision boundaries.
-  d3.select("#network").selectAll("div.canvas")
-      .each(function(data: {heatmap: HeatMap, id: string}) {
-    data.heatmap.updateBackground(reduceMatrix(boundary[data.id], 10),
-        state.discretize);
-  });
+  updateNeuronColors(network);
 
   function zeroPad(n: number): string {
     let pad = "000000";
@@ -882,11 +1858,34 @@ function updateUI(firstStep = false) {
   // Update loss and iteration number.
   d3.select("#loss-train").text(humanReadable(lossTrain));
   d3.select("#loss-test").text(humanReadable(lossTest));
+  d3.select("#loss-train-display").text(humanReadable(lossTrain));
+  d3.select("#loss-test-display").text(humanReadable(lossTest));
   d3.select("#iter-number").text(addCommas(zeroPad(iter)));
-  lineChart.addDataPoint([lossTrain, lossTest]);
+  d3.select("#iter-number-toolbar").text(addCommas(zeroPad(iter)));
+  if (lineChart) {
+    lineChart.addDataPoint([lossTrain, lossTest]);
+  }
+  
+  // Update prediction table
+  updatePredictionTable();
+
+  // Update layer display
+  d3.select("#num-layers-display").text(state.numHiddenLayers);
+
+  // Show accuracy if classification
+  if (isUsingUploadedData && uploadedDataset.problemType === Problem.CLASSIFICATION) {
+    d3.select("#accuracy-metric").style("display", "block");
+  }
+
+  if (connectionEditMode) {
+    bindLinkClickHandlers();
+  }
 }
 
 function constructInputIds(): string[] {
+  if (isUsingUploadedData && uploadedDataset != null) {
+    return uploadedDataset.featureColumns.slice();
+  }
   let result: string[] = [];
   for (let inputName in INPUTS) {
     if (state[inputName]) {
@@ -896,7 +1895,13 @@ function constructInputIds(): string[] {
   return result;
 }
 
-function constructInput(x: number, y: number): number[] {
+function constructInput(x: number, y: number, dataPoint?: DataPoint): number[] {
+  if (isUsingUploadedData && dataPoint) {
+    // Use actual features from uploaded data
+    return dataPoint.features;
+  }
+  
+  // Original behavior for built-in datasets
   let input: number[] = [];
   for (let inputName in INPUTS) {
     if (state[inputName]) {
@@ -909,7 +1914,9 @@ function constructInput(x: number, y: number): number[] {
 function oneStep(): void {
   iter++;
   trainData.forEach((point, i) => {
-    let input = constructInput(point.x, point.y);
+    let dataPoint = (isUsingUploadedData && uploadedDataset != null) ?
+        uploadedDataset.data[i % uploadedDataset.data.length] : null;
+    let input = constructInput(point.x, point.y, dataPoint);
     nn.forwardProp(network, input);
     nn.backProp(network, point.label, nn.Errors.SQUARE);
     if ((i + 1) % state.batchSize === 0) {
@@ -938,7 +1945,9 @@ export function getOutputWeights(network: nn.Node[][]): number[] {
 }
 
 function reset(onStartup=false) {
-  lineChart.reset();
+  if (lineChart) {
+    lineChart.reset();
+  }
   state.serialize();
   if (!onStartup) {
     userHasInteracted();
@@ -948,15 +1957,21 @@ function reset(onStartup=false) {
   let suffix = state.numHiddenLayers !== 1 ? "s" : "";
   d3.select("#layers-label").text("Hidden layer" + suffix);
   d3.select("#num-layers").text(state.numHiddenLayers);
+  
+  if (isUsingUploadedData) {
+    generateDataFromUpload();
+  }
 
   // Make a simple network.
   iter = 0;
-  let numInputs = constructInput(0 , 0).length;
+  let numInputs = (isUsingUploadedData && uploadedDataset != null) ?
+      uploadedDataset.featureColumns.length : constructInput(0 , 0).length;
   let shape = [numInputs].concat(state.networkShape).concat([1]);
   let outputActivation = (state.problem === Problem.REGRESSION) ?
       nn.Activations.LINEAR : nn.Activations.TANH;
   network = nn.buildNetwork(shape, state.activation, outputActivation,
       state.regularization, constructInputIds(), state.initZero);
+  applyDisabledConnectionsToNetwork();
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
   drawNetwork(network);
@@ -988,40 +2003,6 @@ function initTutorial() {
       document.title = title.text();
     }
   });
-}
-
-function drawDatasetThumbnails() {
-  function renderThumbnail(canvas, dataGenerator) {
-    let w = 100;
-    let h = 100;
-    canvas.setAttribute("width", w);
-    canvas.setAttribute("height", h);
-    let context = canvas.getContext("2d");
-    let data = dataGenerator(200, 0);
-    data.forEach(function(d) {
-      context.fillStyle = colorScale(d.label);
-      context.fillRect(w * (d.x + 6) / 12, h * (d.y + 6) / 12, 4, 4);
-    });
-    d3.select(canvas.parentNode).style("display", null);
-  }
-  d3.selectAll(".dataset").style("display", "none");
-
-  if (state.problem === Problem.CLASSIFICATION) {
-    for (let dataset in datasets) {
-      let canvas: any =
-          document.querySelector(`canvas[data-dataset=${dataset}]`);
-      let dataGenerator = datasets[dataset];
-      renderThumbnail(canvas, dataGenerator);
-    }
-  }
-  if (state.problem === Problem.REGRESSION) {
-    for (let regDataset in regDatasets) {
-      let canvas: any =
-          document.querySelector(`canvas[data-regDataset=${regDataset}]`);
-      let dataGenerator = regDatasets[regDataset];
-      renderThumbnail(canvas, dataGenerator);
-    }
-  }
 }
 
 function hideControls() {
@@ -1065,6 +2046,11 @@ function hideControls() {
 }
 
 function generateData(firstTime = false) {
+  if (isUsingUploadedData) {
+    generateDataFromUpload();
+    return;
+  }
+  
   if (!firstTime) {
     // Change the seed.
     state.seed = Math.random().toFixed(5);
@@ -1083,8 +2069,6 @@ function generateData(firstTime = false) {
   let splitIndex = Math.floor(data.length * state.percTrainData / 100);
   trainData = data.slice(0, splitIndex);
   testData = data.slice(splitIndex);
-  heatMap.updatePoints(trainData);
-  heatMap.updateTestPoints(state.showTestData ? testData : []);
 }
 
 let firstInteraction = true;
@@ -1095,25 +2079,28 @@ function userHasInteracted() {
     return;
   }
   firstInteraction = false;
-  let page = 'index';
-  if (state.tutorial != null && state.tutorial !== '') {
-    page = `/v/tutorials/${state.tutorial}`;
+  if (typeof ga !== 'undefined') {
+    let page = 'index';
+    if (state.tutorial != null && state.tutorial !== '') {
+      page = `/v/tutorials/${state.tutorial}`;
+    }
+    ga('set', 'page', page);
+    ga('send', 'pageview', {'sessionControl': 'start'});
   }
-  ga('set', 'page', page);
-  ga('send', 'pageview', {'sessionControl': 'start'});
 }
 
 function simulationStarted() {
-  ga('send', {
-    hitType: 'event',
-    eventCategory: 'Starting Simulation',
-    eventAction: parametersChanged ? 'changed' : 'unchanged',
-    eventLabel: state.tutorial == null ? '' : state.tutorial
-  });
+  if (typeof ga !== 'undefined') {
+    ga('send', {
+      hitType: 'event',
+      eventCategory: 'Starting Simulation',
+      eventAction: parametersChanged ? 'changed' : 'unchanged',
+      eventLabel: state.tutorial == null ? '' : state.tutorial
+    });
+  }
   parametersChanged = false;
 }
 
-drawDatasetThumbnails();
 initTutorial();
 makeGUI();
 generateData(true);

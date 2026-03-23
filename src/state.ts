@@ -1,6 +1,3 @@
-/* Copyright 2016 Google Inc. All Rights Reserved.
-==============================================================================*/
-
 import * as nn from "./nn";
 import * as dataset from "./dataset";
 

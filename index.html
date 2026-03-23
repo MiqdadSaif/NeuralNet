@@ -38,13 +38,207 @@
   <script src="lib.js"></script>
 </head>
 <body>
+  <div id="landing-screen">
+    <div class="landing-container">
+      <div class="landing-header">
+        <h1>🧠 NeuralNet++</h1>
+        <p class="landing-tagline">Understand Neural Networks Through Visualization</p>
+      </div>
+
+      <div class="landing-content">
+        <div class="feature-highlights">
+          <div class="feature-item">
+            <i class="material-icons">upload_file</i>
+            <p>Upload your own data or use built-in datasets</p>
+          </div>
+          <div class="feature-item">
+            <i class="material-icons">account_tree</i>
+            <p>Build and customize network architecture visually</p>
+          </div>
+          <div class="feature-item">
+            <i class="material-icons">insights</i>
+            <p>Watch training happen in real-time</p>
+          </div>
+        </div>
+
+        <div class="landing-actions">
+          <button class="landing-button primary" id="start-tour-btn">
+            <i class="material-icons">school</i>
+            Take 3-Minute Tour
+          </button>
+          <button class="landing-button secondary" id="skip-to-playground-btn">
+            <i class="material-icons">bolt</i>
+            Jump Right In
+          </button>
+        </div>
+
+        <div class="landing-footer">
+          <label class="dont-show-again">
+            <input type="checkbox" id="dont-show-landing">
+            Don't show this again
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tour-overlay" style="display: none;">
+    <div class="tour-backdrop"></div>
+
+    <div class="tour-modal">
+      <div class="tour-header">
+        <div class="tour-progress">
+          <span class="tour-step-indicator">Step <strong id="tour-current-step">1</strong> of 4</span>
+        </div>
+        <button class="tour-skip" id="tour-skip-btn">Skip Tour</button>
+      </div>
+
+      <div class="tour-content">
+        <div id="tour-step-content"></div>
+      </div>
+
+      <div class="tour-footer">
+        <button class="tour-nav-btn" id="tour-back-btn" style="display: none;">
+          <i class="material-icons">arrow_back</i>
+          Back
+        </button>
+        <button class="tour-nav-btn primary" id="tour-next-btn">
+          Next
+          <i class="material-icons">arrow_forward</i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page Header (Scrollable) -->
+  <div id="page-header">
+    <div class="page-header-content">
+      <h1 class="page-title">NeuralNet++</h1>
+      <p class="page-tagline">🧠 Build • Experiment • Understand</p>
+    </div>
+  </div>
+
+  <!-- Sticky Toolbar (Fixed on scroll) -->
+  <div id="top-toolbar">
+    <div class="toolbar-section">
+      <span class="toolbar-label">FILE</span>
+      <input type="file" id="csv-upload-input" accept=".csv" style="display: none;">
+      <button class="toolbar-button" onclick="document.getElementById('csv-upload-input').click()">
+        <i class="material-icons">upload_file</i>
+        Upload CSV
+      </button>
+      <button class="toolbar-button" id="reset-button-toolbar">
+        <i class="material-icons">refresh</i>
+        Reset
+      </button>
+    </div>
+    
+    <div class="toolbar-section">
+      <span class="toolbar-label">TRAINING</span>
+      <label class="toolbar-control">
+        <span>Learning Rate</span>
+        <select id="learningRate-toolbar">
+          <option value="0.00001">0.00001</option>
+          <option value="0.0001">0.0001</option>
+          <option value="0.001">0.001</option>
+          <option value="0.003">0.003</option>
+          <option value="0.01">0.01</option>
+          <option value="0.03" selected>0.03</option>
+          <option value="0.1">0.1</option>
+          <option value="0.3">0.3</option>
+          <option value="1">1</option>
+          <option value="3">3</option>
+          <option value="10">10</option>
+        </select>
+      </label>
+      
+      <label class="toolbar-control">
+        <span>Activation</span>
+        <select id="activations-toolbar">
+          <option value="relu">ReLU</option>
+          <option value="tanh" selected>Tanh</option>
+          <option value="sigmoid">Sigmoid</option>
+          <option value="linear">Linear</option>
+        </select>
+      </label>
+      
+      <label class="toolbar-control">
+        <span>Regularization</span>
+        <select id="regularizations-toolbar">
+          <option value="none" selected>None</option>
+          <option value="L1">L1</option>
+          <option value="L2">L2</option>
+        </select>
+      </label>
+      
+      <label class="toolbar-control">
+        <span>Reg. Rate</span>
+        <select id="regularRate-toolbar">
+          <option value="0" selected>0</option>
+          <option value="0.001">0.001</option>
+          <option value="0.003">0.003</option>
+          <option value="0.01">0.01</option>
+          <option value="0.03">0.03</option>
+          <option value="0.1">0.1</option>
+          <option value="0.3">0.3</option>
+          <option value="1">1</option>
+          <option value="3">3</option>
+          <option value="10">10</option>
+        </select>
+      </label>
+      
+      <label class="toolbar-control">
+        <span>Problem</span>
+        <select id="problem-toolbar">
+          <option value="classification" selected>Classification</option>
+          <option value="regression">Regression</option>
+        </select>
+      </label>
+    </div>
+    
+    <div class="toolbar-section">
+      <span class="toolbar-label">PLAYBACK</span>
+      <button class="toolbar-button toolbar-play" id="play-pause-button-toolbar">
+        <i class="material-icons">play_arrow</i>
+        Play
+      </button>
+      <button class="toolbar-button" id="next-step-button-toolbar">
+        <i class="material-icons">skip_next</i>
+        Step
+      </button>
+      <span class="toolbar-epoch">Epoch: <strong id="iter-number-toolbar">0</strong></span>
+    </div>
+    
+    <div class="toolbar-section">
+      <span class="toolbar-label">NETWORK</span>
+      <button class="toolbar-button" id="add-layers-toolbar">
+        <i class="material-icons">add</i>
+        Add Layer
+      </button>
+      <button class="toolbar-button" id="remove-layers-toolbar">
+        <i class="material-icons">remove</i>
+        Remove Layer
+      </button>
+      <button class="toolbar-button" id="toggle-edit-connections-toolbar">
+        <i class="material-icons">edit</i>
+        Edit Connections
+      </button>
+    </div>
+
+    <div class="toolbar-section">
+      <button class="toolbar-button help-button" id="restart-tour-btn">
+        <i class="material-icons">help_outline</i>
+        Help
+      </button>
+    </div>
+  </div>
   
   <!-- GitHub Link -->
-  <a class="github-link" href="https://github.com/yourusername/neuralnetplusplus" title="View on GitHub" target="_blank" rel="noopener">
+  <!-- <a class="github-link" href="https://github.com/yourusername/neuralnetplusplus" title="View on GitHub" target="_blank" rel="noopener">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28">
       <path class="icon" d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
     </svg>
-  </a>
+  </a> -->
 
   <!-- Header -->
   <header>
@@ -144,176 +338,138 @@
     </div>
   </div>
 
-  <!-- Main Interactive Area -->
-  <div id="main-part" class="l--page">
-
-    <!-- Data Column -->
-    <div class="column data">
-      <h4>Data</h4>
-      <div class="ui-dataset">
-        <p>Select your dataset</p>
-        <div class="dataset-list">
-          <div class="dataset" title="Circle">
-            <canvas class="data-thumbnail" data-dataset="circle"></canvas>
-          </div>
-          <div class="dataset" title="Exclusive OR">
-            <canvas class="data-thumbnail" data-dataset="xor"></canvas>
-          </div>
-          <div class="dataset" title="Gaussian">
-            <canvas class="data-thumbnail" data-dataset="gauss"></canvas>
-          </div>
-          <div class="dataset" title="Spiral">
-            <canvas class="data-thumbnail" data-dataset="spiral"></canvas>
-          </div>
-          <div class="dataset" title="Plane">
-            <canvas class="data-thumbnail" data-regDataset="reg-plane"></canvas>
-          </div>
-          <div class="dataset" title="Multi-Gaussian">
-            <canvas class="data-thumbnail" data-regDataset="reg-gauss"></canvas>
+  <div id="main-part-redesign">
+    
+    <!-- Network Section (Full Width, Large) -->
+    <div class="network-section">
+      <div class="network-header">
+        <h3>Network Architecture</h3>
+        <div class="network-controls">
+          <button id="add-input-button" class="network-control-btn">
+            <i class="material-icons">add</i> Add Input
+          </button>
+          <button id="remove-input-button" class="network-control-btn">
+            <i class="material-icons">remove</i> Remove Input
+          </button>
+          <span class="layer-info">
+            <strong id="num-layers-display">2</strong> Hidden Layers
+          </span>
+        </div>
+      </div>
+      
+      <div id="network-container">
+        <div id="network">
+          <svg id="svg" width="100%" height="700">
+            <defs>
+              <marker id="markerArrow" markerWidth="7" markerHeight="13" refX="1" refY="6" orient="auto" markerUnits="userSpaceOnUse">
+                <path d="M2,11 L7,6 L2,2" />
+              </marker>
+              <linearGradient id="neuron-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:#7b6cf6;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#6b5ce7;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+          </svg>
+          
+          <!-- Hover card -->
+          <div id="hovercard">
+            <div style="font-size:10px">Click anywhere to edit.</div>
+            <div><span class="type">Weight/Bias</span> is <span class="value">0.2</span><span><input type="number"/></span>.</div>
           </div>
         </div>
       </div>
-      <div>
-        <div class="ui-percTrainData">
-          <label for="percTrainData">Training data ratio: <span class="value">XX</span>%</label>
-          <p class="slider">
-            <input class="mdl-slider mdl-js-slider" type="range" id="percTrainData" min="10" max="90" step="10">
-          </p>
+    </div>
+    
+    <!-- Bottom Panel: Data Info + Training Params + Results -->
+    <div class="bottom-panel">
+      
+      <!-- Data Info Column -->
+      <div class="bottom-column data-info-column">
+        <h4>Dataset Info</h4>
+        <div id="csv-upload-status-display">
+          <p>No dataset loaded</p>
+          <button class="basic-button" onclick="document.getElementById('csv-upload-input').click()">
+            Upload CSV
+          </button>
         </div>
-        <div class="ui-noise">
-          <label for="noise">Noise level: <span class="value">XX</span></label>
-          <p class="slider">
-            <input class="mdl-slider mdl-js-slider" type="range" id="noise" min="0" max="50" step="5">
-          </p>
+        <div id="feature-selector" style="display: none;"></div>
+      </div>
+      
+      <!-- Training Parameters Column -->
+      <div class="bottom-column training-params-column">
+        <h4>Training Parameters</h4>
+        <div class="param-group">
+          <label>Batch Size: <strong id="batch-display">10</strong></label>
+          <input type="range" id="batchSize-slider" min="1" max="30" step="1" value="10" class="param-slider">
         </div>
-        <div class="ui-batchSize">
-          <label for="batchSize">Batch size: <span class="value">XX</span></label>
-          <p class="slider">
-            <input class="mdl-slider mdl-js-slider" type="range" id="batchSize" min="1" max="30" step="1">
-          </p>
+        <div class="param-group">
+          <label>Noise Level: <strong id="noise-display">0</strong></label>
+          <input type="range" id="noise-slider" min="0" max="50" step="5" value="0" class="param-slider">
         </div>
-        <button class="basic-button" id="data-regen-button" title="Regenerate data">
+        <div class="param-group">
+          <label>Train/Test Split: <strong id="split-display">50</strong>%</label>
+          <input type="range" id="percTrainData-slider" min="10" max="90" step="10" value="50" class="param-slider">
+        </div>
+        <button class="basic-button" id="data-regen-button-bottom" style="display: none;">
           Regenerate Dataset
         </button>
       </div>
-    </div>
-
-    <!-- Features Column -->
-    <div class="column features">
-      <h4>Input Features</h4>
-      <p>Select input features for your network</p>
-      <div id="network">
-        <svg id="svg" width="510" height="450">
-          <defs>
-            <marker id="markerArrow" markerWidth="7" markerHeight="13" refX="1" refY="6" orient="auto" markerUnits="userSpaceOnUse">
-              <path d="M2,11 L7,6 L2,2" />
-            </marker>
-          </defs>
-        </svg>
-        
-        <!-- Hover Card -->
-        <div id="hovercard">
-          <div style="font-size:10px">Click to edit value</div>
-          <div><span class="type">Weight/Bias</span> is <span class="value">0.2</span><span><input type="number"/></span></div>
-        </div>
-        
-        <!-- Callout: Neuron Output -->
-        <div class="callout thumbnail">
-          <svg viewBox="0 0 30 30">
-            <defs>
-              <marker id="arrow" markerWidth="5" markerHeight="5" refx="5" refy="2.5" orient="auto" markerUnits="userSpaceOnUse">
-                <path d="M0,0 L5,2.5 L0,5 z"/>
-              </marker>
-            </defs>
-            <path d="M12,30C5,20 2,15 12,0" marker-end="url(#arrow)">
-          </svg>
-          <div class="label">
-            Neuron output visualization. Hover to see details.
+      
+      <!-- Results Column -->
+      <div class="bottom-column results-column">
+        <h4>Training Results</h4>
+        <div class="metrics-grid">
+          <div class="metric-item">
+            <span class="metric-label">Test Loss</span>
+            <span class="metric-value" id="loss-test-display">0.000</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Train Loss</span>
+            <span class="metric-value" id="loss-train-display">0.000</span>
+          </div>
+          <div class="metric-item" id="accuracy-metric" style="display: none;">
+            <span class="metric-label">Accuracy</span>
+            <span class="metric-value" id="accuracy-display-main">0%</span>
           </div>
         </div>
         
-        <!-- Callout: Weights -->
-        <div class="callout weights">
-          <svg viewBox="0 0 30 30">
-            <defs>
-              <marker id="arrow2" markerWidth="5" markerHeight="5" refx="5" refy="2.5" orient="auto" markerUnits="userSpaceOnUse">
-                <path d="M0,0 L5,2.5 L0,5 z"/>
-              </marker>
-            </defs>
-            <path d="M12,30C5,20 2,15 12,0" marker-end="url(#arrow2)">
-          </svg>
-          <div class="label">
-            Connection weights shown by line thickness.
+        <div id="linechart-bottom"></div>
+        
+        <button class="basic-button" id="view-predictions-btn" style="display: none;">
+          View Detailed Predictions
+        </button>
+      </div>
+      
+    </div>
+    
+    <!-- Prediction Modal (Hidden by default) -->
+    <div id="prediction-modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Detailed Predictions</h3>
+          <button class="modal-close" id="close-modal-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div id="prediction-results">
+            <div id="accuracy-display"></div>
+            <div id="prediction-table-container">
+              <table id="prediction-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Predicted</th>
+                    <th>Actual</th>
+                    <th>Match</th>
+                  </tr>
+                </thead>
+                <tbody id="prediction-tbody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- Hidden Layers Column -->
-    <div class="column hidden-layers">
-      <h4>
-        <div class="ui-numHiddenLayers">
-          <button id="add-layers" class="mdl-button mdl-js-button mdl-button--icon" title="Add layer">
-            <i class="material-icons">add</i>
-          </button>
-          <button id="remove-layers" class="mdl-button mdl-js-button mdl-button--icon" title="Remove layer">
-            <i class="material-icons">remove</i>
-          </button>
-        </div>
-        <span id="num-layers"></span>
-        <span id="layers-label"></span>
-      </h4>
-      <div class="bracket"></div>
-    </div>
-
-    <!-- Output Column -->
-    <div class="column output">
-      <h4>Output</h4>
-      <div class="metrics">
-        <div class="output-stats ui-percTrainData">
-          <span>Test Loss</span>
-          <div class="value" id="loss-test"></div>
-        </div>
-        <div class="output-stats train">
-          <span>Training Loss</span>
-          <div class="value" id="loss-train"></div>
-        </div>
-        <div id="linechart"></div>
-      </div>
-      <div id="heatmap"></div>
-      <div style="float:left;margin-top:20px">
-        <div style="display:flex; align-items:center;">
-          <!-- Gradient Color Scale -->
-          <div class="label" style="width:105px; margin-right: 10px">
-            Colors represent data values and predictions
-          </div>
-          <svg width="150" height="30" id="colormap">
-            <defs>
-              <linearGradient id="gradient" x1="0%" y1="100%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#f59322" stop-opacity="1"></stop>
-                <stop offset="50%" stop-color="#e8eaeb" stop-opacity="1"></stop>
-                <stop offset="100%" stop-color="#0877bd" stop-opacity="1"></stop>
-              </linearGradient>
-            </defs>
-            <g class="core" transform="translate(3, 0)">
-              <rect width="144" height="10" style="fill: url('#gradient');"></rect>
-            </g>
-          </svg>
-        </div>
-        <br/>
-        <div style="display:flex;">
-          <label class="ui-showTestData mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="show-test-data">
-            <input type="checkbox" id="show-test-data" class="mdl-checkbox__input" checked>
-            <span class="mdl-checkbox__label label">Show test data</span>
-          </label>
-          <label class="ui-discretize mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="discretize">
-            <input type="checkbox" id="discretize" class="mdl-checkbox__input" checked>
-            <span class="mdl-checkbox__label label">Discretize output</span>
-          </label>
-        </div>
-      </div>
-    </div>
-
+    
   </div>
 
   <!-- More Button -->
@@ -342,7 +498,7 @@
     <!-- Core Philosophy Section -->
     <div class="l--body">
       <div class="content-section accent">
-        <h2>Our Philosophy: Modularity & Transparency</h2>
+        <h2>Philosophy: Modularity & Transparency</h2>
         <p>
           NeuralNet++ functions as a neural network creation environment, similar in concept to a digital design tool, where you can define network architectures, select computational functions, and experiment with learning parameters without relying on external machine learning frameworks.
         </p>
@@ -352,15 +508,15 @@
         
         <div class="feature-grid">
           <div class="feature-card">
-            <h4>🧩 Modular Components</h4>
+            <h4>Modular Components</h4>
             <p>Build networks from configurable blocks including activation functions, loss functions, and training components.</p>
           </div>
           <div class="feature-card">
-            <h4>🔍 Full Transparency</h4>
+            <h4>Full Transparency</h4>
             <p>See the mathematics behind every operation and understand how data flows through your network.</p>
           </div>
           <div class="feature-card">
-            <h4>⚡ Interactive Learning</h4>
+            <h4>Interactive Learning</h4>
             <p>Experiment with different architectures and parameters in real-time to understand their impact.</p>
           </div>
         </div>
@@ -447,19 +603,9 @@
     <!-- Project Vision Section -->
     <div class="l--body">
       <div class="content-section secondary">
-        <h2>Project Vision & Future</h2>
+        <h2>Project Vision</h2>
         <p>
           The outcome of this project is a flexible neural network building platform that supports learning, rapid prototyping, and analytical exploration. NeuralNet++ serves as a foundational system for future extensions into advanced neural architectures and artificial intelligence research.
-        </p>
-        
-        <h3>Future Enhancements</h3>
-        <p>
-          We envision expanding NeuralNet++ to support more advanced architectures including convolutional neural networks (CNNs), recurrent neural networks (RNNs), and transformer models. Additional visualization tools, more diverse datasets, and enhanced export capabilities are also in development.
-        </p>
-        
-        <h3>Open Source & Community</h3>
-        <p>
-          NeuralNet++ is built on the foundation of open-source learning tools. We believe in making AI education accessible to everyone. The tool is designed to be extensible, allowing researchers and developers to add new features and capabilities.
         </p>
       </div>
     </div>
@@ -474,13 +620,17 @@
         <p>
           Don't worry about making mistakes – experimentation is the best way to learn. Try different configurations, observe how they perform, and develop your intuition about neural network design. The interface is designed to be forgiving and educational, so feel free to explore.
         </p>
-        <p>
-          Have questions or suggestions? We'd love to hear from you. Visit our <a href="https://github.com/yourusername/neuralnetplusplus">GitHub repository</a> to contribute, report issues, or learn more about the technical implementation.
-        </p>
       </div>
     </div>
 
   </article>
+
+  <div class="article-toggle-section">
+    <button class="article-toggle-btn" id="toggle-article-btn">
+      <i class="material-icons">expand_more</i>
+      Learn More About Neural Networks
+    </button>
+  </div>
 
   <!-- Footer -->
   <footer>
@@ -493,9 +643,7 @@
           </div>
         </div>
         <div class="links">
-          <a href="https://github.com/yourusername/neuralnetplusplus">GitHub</a>
-          <a href="#article-text">Documentation</a>
-          <a href="mailto:contact@neuralnetplusplus.org">Contact</a>
+          <a href="mailto:miqdadmuad78@gmail.com">Contact</a>
         </div>
       </div>
     </div>

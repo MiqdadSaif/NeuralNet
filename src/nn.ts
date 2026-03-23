@@ -1,18 +1,3 @@
-/* Copyright 2016 Google Inc. All Rights Reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-==============================================================================*/
-
 /**
  * A node in a neural network. Each node has a state
  * (total input, output, and their respectively derivatives) which changes
@@ -62,6 +47,9 @@ export class Node {
     this.totalInput = this.bias;
     for (let j = 0; j < this.inputLinks.length; j++) {
       let link = this.inputLinks[j];
+      if (link.isDisabled) {
+        continue;
+      }
       this.totalInput += link.weight * link.source.output;
     }
     this.output = this.activation.output(this.totalInput);
@@ -160,6 +148,7 @@ export class Link {
   dest: Node;
   weight = Math.random() - 0.5;
   isDead = false;
+  isDisabled = false;
   /** Error derivative with respect to this weight. */
   errorDer = 0;
   /** Accumulated error derivative since the last update. */
@@ -304,7 +293,7 @@ export function backProp(network: Node[][], target: number,
       let node = currentLayer[i];
       for (let j = 0; j < node.inputLinks.length; j++) {
         let link = node.inputLinks[j];
-        if (link.isDead) {
+        if (link.isDead || link.isDisabled) {
           continue;
         }
         link.errorDer = node.inputDer * link.source.output;
@@ -322,6 +311,9 @@ export function backProp(network: Node[][], target: number,
       node.outputDer = 0;
       for (let j = 0; j < node.outputs.length; j++) {
         let output = node.outputs[j];
+        if (output.isDisabled) {
+          continue;
+        }
         node.outputDer += output.weight * output.dest.inputDer;
       }
     }
@@ -347,7 +339,7 @@ export function updateWeights(network: Node[][], learningRate: number,
       // Update the weights coming into this node.
       for (let j = 0; j < node.inputLinks.length; j++) {
         let link = node.inputLinks[j];
-        if (link.isDead) {
+        if (link.isDead || link.isDisabled) {
           continue;
         }
         let regulDer = link.regularization ?
@@ -392,4 +384,65 @@ export function forEachNode(network: Node[][], ignoreInputs: boolean,
 /** Returns the output node in the network. */
 export function getOutputNode(network: Node[][]) {
   return network[network.length - 1][0];
+}
+
+export function canToggleConnection(
+    network: Node[][], sourceId: string, destId: string): boolean {
+  let link: Link | null = null;
+  for (let layerIdx = 1; layerIdx < network.length; layerIdx++) {
+    for (let node of network[layerIdx]) {
+      for (let l of node.inputLinks) {
+        if (l.source.id === sourceId && l.dest.id === destId) {
+          link = l;
+          break;
+        }
+      }
+      if (link) {
+        break;
+      }
+    }
+    if (link) {
+      break;
+    }
+  }
+
+  if (!link) {
+    return false;
+  }
+  if (link.isDisabled) {
+    return true;
+  }
+
+  let activeCount = 0;
+  for (let l of link.dest.inputLinks) {
+    if (!l.isDisabled && !l.isDead) {
+      activeCount++;
+    }
+  }
+  return activeCount > 1;
+}
+
+export function toggleConnection(
+    network: Node[][], sourceId: string, destId: string): boolean {
+  for (let layerIdx = 1; layerIdx < network.length; layerIdx++) {
+    for (let node of network[layerIdx]) {
+      for (let link of node.inputLinks) {
+        if (link.source.id === sourceId && link.dest.id === destId) {
+          link.isDisabled = !link.isDisabled;
+          return link.isDisabled;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+export function resetAllConnections(network: Node[][]): void {
+  for (let layerIdx = 1; layerIdx < network.length; layerIdx++) {
+    for (let node of network[layerIdx]) {
+      for (let link of node.inputLinks) {
+        link.isDisabled = false;
+      }
+    }
+  }
 }
