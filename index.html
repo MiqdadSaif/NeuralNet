@@ -438,6 +438,10 @@
         <button class="basic-button" id="view-predictions-btn" style="display: none;">
           View Detailed Predictions
         </button>
+        <button class="basic-button export-code-button" id="export-code-btn" style="display: none;">
+          <i class="material-icons">code</i>
+          Export Code
+        </button>
       </div>
       
     </div>
@@ -643,11 +647,52 @@
           </div>
         </div>
         <div class="links">
-          <a href="mailto:miqdadmuad78@gmail.com">Contact</a>
+          <a href="mailto:miqdadmuad78@gmail.com?subject=Question%20about%20NeuralNet%2B%2B&body=Hi%2C%0A%0AI%20have%20a%20question%20about%20the%20neural%20network%20playground..." class="contact-link" onclick="event.stopPropagation();">
+            <i class="material-icons">email</i>
+            Contact
+          </a>
         </div>
       </div>
     </div>
   </footer>
+
+  <!-- Code Export Modal -->
+  <div id="code-export-modal" style="display: none;">
+    <div class="modal-backdrop"></div>
+    <div class="code-modal-content">
+      <div class="code-modal-header">
+        <h3>Export Training Code (Keras/TensorFlow)</h3>
+        <button class="modal-close" id="close-code-modal">×</button>
+      </div>
+      
+      <div class="code-modal-body">
+        <div class="code-options">
+          <label class="code-option-checkbox">
+            <input type="checkbox" id="include-comments" checked>
+            <span>Include comments</span>
+          </label>
+          <label class="code-option-checkbox">
+            <input type="checkbox" id="include-weights" checked>
+            <span>Include trained weights</span>
+          </label>
+        </div>
+        
+        <div class="code-preview-container">
+          <pre id="generated-code-preview"><code></code></pre>
+        </div>
+        
+        <div class="code-modal-footer">
+          <button class="code-action-button" id="copy-code-btn">
+            <i class="material-icons">content_copy</i>
+            Copy to Clipboard
+          </button>
+          <div id="copy-success-message" style="display: none; color: #4caf50; margin-left: 16px;">
+            ✓ Copied to clipboard!
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Scripts -->
   <script src="bundle.js"></script>
