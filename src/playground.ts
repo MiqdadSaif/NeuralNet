@@ -16,8 +16,6 @@ limitations under the License.
 import * as nn from "./nn";
 import {
   State,
-  datasets,
-  regDatasets,
   activations,
   problems,
   regularizations,
@@ -61,11 +59,6 @@ const TOUR_STEPS = [
           <i class="material-icons">upload_file</i>
           <h3>Upload CSV</h3>
           <p>Use your own data file</p>
-        </div>
-        <div class="tour-option-card" data-action="use-builtin">
-          <i class="material-icons">dataset</i>
-          <h3>Built-in Data</h3>
-          <p>Start with sample datasets</p>
         </div>
       </div>
     `
@@ -245,25 +238,15 @@ function updateTourStep() {
       // Trigger CSV upload
       endTour();
       document.getElementById("csv-upload-input").click();
-    } else if (action === "use-builtin") {
-      // Close tour and user can select built-in dataset
-      endTour();
     }
   });
 }
 
 const RECT_SIZE = 45;
 const BIAS_SIZE = 5;
-const NUM_SAMPLES_CLASSIFY = 500;
-const NUM_SAMPLES_REGRESS = 1200;
 
 enum HoverType {
   BIAS, WEIGHT
-}
-
-interface InputFeature {
-  f: (x: number, y: number) => number;
-  label?: string;
 }
 
 interface ParsedCSV {
@@ -285,19 +268,6 @@ interface DataPoint {
   label: number;
 }
 
-let INPUTS: {[name: string]: InputFeature} = {
-  "x": {f: (x, y) => x, label: "X_1"},
-  "y": {f: (x, y) => y, label: "X_2"},
-  "xSquared": {f: (x, y) => x * x, label: "X_1^2"},
-  "ySquared": {f: (x, y) => y * y,  label: "X_2^2"},
-  "xTimesY": {f: (x, y) => x * y, label: "X_1X_2"},
-  "sinX": {f: (x, y) => Math.sin(x), label: "sin(X_1)"},
-  "sinY": {f: (x, y) => Math.sin(y), label: "sin(X_2)"},
-};
-
-// Track available and active input features
-const ALL_INPUT_FEATURES = ["x", "y", "xSquared", "ySquared", "xTimesY", "sinX", "sinY"];
-
 let HIDABLE_CONTROLS = [
   ["Play button", "playButton"],
   ["Step button", "stepButton"],
@@ -306,10 +276,7 @@ let HIDABLE_CONTROLS = [
   ["Activation", "activation"],
   ["Regularization", "regularization"],
   ["Regularization rate", "regularizationRate"],
-  ["Problem type", "problem"],
-  ["Which dataset", "dataset"],
   ["Ratio train data", "percTrainData"],
-  ["Noise level", "noise"],
   ["Batch size", "batchSize"],
   ["# of hidden layers", "numHiddenLayers"],
 ];
@@ -367,13 +334,6 @@ class Player {
 
 let state = State.deserializeState();
 
-// Filter out inputs that are hidden.
-state.getHiddenProps().forEach(prop => {
-  if (prop in INPUTS) {
-    delete INPUTS[prop];
-  }
-});
-
 let linkWidthScale = d3.scale.linear()
   .domain([0, 5])
   .range([1, 10])
@@ -390,6 +350,7 @@ let lossTrain = 0;
 let lossTest = 0;
 let player = new Player();
 let lineChart: AppendingLineChart | null = null;
+const PLACEHOLDER_INPUTS = ["Feature_1", "Feature_2"];
 
 function initLineChart() {
   if (lineChart) {
@@ -403,6 +364,8 @@ function initLineChart() {
 }
 
 let uploadedDataset: DatasetMapping | null = null;
+let uploadedDatasetBase: DatasetMapping | null = null;
+let detectedProblemType: Problem | null = null;
 let isUsingUploadedData = false;
 
 let connectionEditMode = false;
@@ -412,103 +375,7 @@ function clearDisabledConnections() {
   disabledConnections = {};
 }
 
-// Initialize input features - only x and y active by default
-function initializeInputFeatures() {
-  ALL_INPUT_FEATURES.forEach(feature => {
-    if (feature === "x" || feature === "y") {
-      state[feature] = true;
-    } else {
-      state[feature] = false;
-    }
-  });
-}
-
-function setupInputFeatureControls() {
-  let lockedMessage = "Cannot change input features when using uploaded CSV. Upload a new CSV to select different features.";
-  d3.select("#add-input-button").on("click", () => {
-    if (isUsingUploadedData) {
-      alert(lockedMessage);
-      return;
-    }
-    addNextInputFeature();
-  });
-
-  d3.select("#remove-input-button").on("click", () => {
-    if (isUsingUploadedData) {
-      alert(lockedMessage);
-      return;
-    }
-    removeLastInputFeature();
-  });
-
-  // Existing controls (if present)
-  d3.select("#add-input-feature").on("click", () => {
-    if (isUsingUploadedData) {
-      alert(lockedMessage);
-      return;
-    }
-    addNextInputFeature();
-  });
-
-  d3.select("#remove-input-feature").on("click", () => {
-    if (isUsingUploadedData) {
-      alert(lockedMessage);
-      return;
-    }
-    removeLastInputFeature();
-  });
-  
-  updateInputFeatureButtons();
-}
-
-function addNextInputFeature() {
-  // Find next inactive feature
-  for (let feature of ALL_INPUT_FEATURES) {
-    if (!state[feature]) {
-      state[feature] = true;
-      parametersChanged = true;
-      reset();
-      updateInputFeatureButtons();
-      return;
-    }
-  }
-  // All features already active
-  console.log("All input features are already active");
-}
-
-function removeLastInputFeature() {
-  // Don't allow removing if only 1 feature left
-  let activeCount = ALL_INPUT_FEATURES.filter(f => state[f]).length;
-  if (activeCount <= 1) {
-    console.log("Cannot remove - at least 1 input feature required");
-    return;
-  }
-  
-  // Find last active feature and remove it
-  for (let i = ALL_INPUT_FEATURES.length - 1; i >= 0; i--) {
-    let feature = ALL_INPUT_FEATURES[i];
-    if (state[feature]) {
-      state[feature] = false;
-      parametersChanged = true;
-      reset();
-      updateInputFeatureButtons();
-      return;
-    }
-  }
-}
-
-function updateInputFeatureButtons() {
-  let activeCount = ALL_INPUT_FEATURES.filter(f => state[f]).length;
-  let allCount = ALL_INPUT_FEATURES.length;
-  
-  // Disable add button if all features active
-  d3.select("#add-input-feature")
-    .attr("disabled", activeCount >= allCount ? "disabled" : null);
-  
-  // Disable remove button if only 1 feature left
-  d3.select("#remove-input-feature")
-    .attr("disabled", activeCount <= 1 ? "disabled" : null);
-}
+let problemOverride: Problem | null = null;
 
 function setupConnectionEditControls() {
   let toggle = d3.select("#toggle-edit-connections");
@@ -898,37 +765,65 @@ function applyCSVData(parsed: ParsedCSV) {
   
   // Normalize features
   let normalized = normalizeMultiDimensionalData(dataPoints);
-  
-  // Detect problem type
-  let labels = normalized.map(d => d.label);
-  let problemType = detectProblemType(labels);
-  
-  if (problemType === Problem.CLASSIFICATION) {
-    normalized = discretizeLabels(normalized);
-  }
-  
-  uploadedDataset = {
+  uploadedDatasetBase = {
     featureColumns: selectedFeatures,
     labelColumn: labelColumn,
     data: normalized,
-    problemType: problemType
+    problemType: null
   };
-  
-  state.problem = problemType;
+  // Detect problem type based on normalized labels.
+  let labels = normalized.map(d => d.label);
+  detectedProblemType = detectProblemType(labels);
+  problemOverride = null;
+  applyProblemTypeSelection();
+
   isUsingUploadedData = true;
-  
-  d3.select("#problem").property("value", getKeyFromValue(problems, problemType));
+  updateProblemTypeUI();
   d3.select("#feature-selector").style("display", "none");
   d3.select("#csv-upload-status").html(`<strong>Dataset loaded:</strong> ${selectedFeatures.length} features, ${normalized.length} samples`);
   d3.select("#csv-upload-status-display").html(`
     <p><strong>Dataset Loaded</strong></p>
     <p>${selectedFeatures.length} features, ${normalized.length} samples</p>
-    <p>Type: ${problemType === Problem.CLASSIFICATION ? "Classification" : "Regression"}</p>
+    <p>Type: <span id="detected-problem-inline">${detectedProblemType === Problem.CLASSIFICATION ? "Classification" : "Regression"}</span></p>
   `);
   d3.select("#view-predictions-btn").style("display", "block");
   d3.select("#export-code-btn").style("display", "block");
   
   reset();
+}
+
+function applyProblemTypeSelection() {
+  if (!uploadedDatasetBase || detectedProblemType == null) {
+    return;
+  }
+  let effective = problemOverride != null ? problemOverride : detectedProblemType;
+  let data = (effective === Problem.CLASSIFICATION) ?
+    discretizeLabels(uploadedDatasetBase.data) :
+    uploadedDatasetBase.data;
+
+  uploadedDataset = {
+    featureColumns: uploadedDatasetBase.featureColumns,
+    labelColumn: uploadedDatasetBase.labelColumn,
+    data: data,
+    problemType: effective
+  };
+  state.problem = effective;
+}
+
+function updateProblemTypeUI() {
+  if (detectedProblemType == null) {
+    d3.select("#detected-problem-type").text("-");
+    d3.select("#problem-override").property("value", "auto");
+    return;
+  }
+  d3.select("#detected-problem-type")
+    .text(detectedProblemType === Problem.CLASSIFICATION ? "Classification" : "Regression");
+  d3.select("#detected-problem-inline")
+    .text(detectedProblemType === Problem.CLASSIFICATION ? "Classification" : "Regression");
+  let overrideValue = problemOverride == null ? "auto" :
+    (problemOverride === Problem.CLASSIFICATION ? "classification" : "regression");
+  d3.select("#problem-override").property("value", overrideValue);
+  d3.select("#problem-override").attr("disabled", null);
 }
 
 
@@ -1001,17 +896,13 @@ function makeGUI() {
     }
   });
 
-  // Initialize input features
-  initializeInputFeatures();
-  
-  // Setup input feature controls
-  setupInputFeatureControls();
-
   // Setup connection edit controls
   setupConnectionEditControls();
 
   // Setup CSV upload controls
   setupCSVUpload();
+  d3.select("#problem-override").attr("disabled", "disabled");
+  d3.select("#detected-problem-type").text("-");
   initLineChart();
   
   d3.select("#reset-button").on("click", () => {
@@ -1023,6 +914,10 @@ function makeGUI() {
   d3.select("#play-pause-button").on("click", function () {
     // Change the button's content.
     userHasInteracted();
+    if (!isUsingUploadedData || !uploadedDataset) {
+      alert("Please upload a CSV dataset before training.");
+      return;
+    }
     player.playOrPause();
   });
 
@@ -1041,16 +936,16 @@ function makeGUI() {
   d3.select("#next-step-button").on("click", () => {
     player.pause();
     userHasInteracted();
+    if (!isUsingUploadedData || !uploadedDataset) {
+      alert("Please upload a CSV dataset before training.");
+      return;
+    }
     if (iter === 0) {
       simulationStarted();
     }
     oneStep();
   });
 
-  d3.select("#data-regen-button").on("click", () => {
-    generateData();
-    parametersChanged = true;
-  });
 
   d3.select("#add-layers").on("click", () => {
     if (state.numHiddenLayers >= 6) {
@@ -1085,28 +980,6 @@ function makeGUI() {
     d3.select("label[for='percTrainData'] .value").text(state.percTrainData);
   }
 
-  let noise = d3.select("#noise");
-  if (!noise.empty()) {
-    noise.on("input", function() {
-      state.noise = this.value;
-      d3.select("label[for='noise'] .value").text(this.value);
-      generateData();
-      parametersChanged = true;
-      reset();
-    });
-    let currentMax = parseInt(noise.property("max"));
-    if (state.noise > currentMax) {
-      if (state.noise <= 80) {
-        noise.property("max", state.noise);
-      } else {
-        state.noise = 50;
-      }
-    } else if (state.noise < 0) {
-      state.noise = 0;
-    }
-    noise.property("value", state.noise);
-    d3.select("label[for='noise'] .value").text(state.noise);
-  }
 
   let batchSize = d3.select("#batchSize");
   if (!batchSize.empty()) {
@@ -1163,16 +1036,18 @@ function makeGUI() {
     regularRate.property("value", state.regularizationRate);
   }
 
-  let problem = d3.select("#problem");
-  if (!problem.empty()) {
-    problem.on("change", function() {
-      state.problem = problems[this.value];
-      generateData();
-      parametersChanged = true;
-      reset();
-    });
-    problem.property("value", getKeyFromValue(problems, state.problem));
-  }
+  d3.select("#problem-override").on("change", function() {
+    let value = (this as HTMLSelectElement).value;
+    if (value === "auto") {
+      problemOverride = null;
+    } else {
+      problemOverride = problems[value];
+    }
+    applyProblemTypeSelection();
+    updateProblemTypeUI();
+    parametersChanged = true;
+    reset();
+  });
 
   // Wire up toolbar controls (in addition to existing controls)
   d3.select("#reset-button-toolbar").on("click", () => {
@@ -1182,12 +1057,20 @@ function makeGUI() {
 
   d3.select("#play-pause-button-toolbar").on("click", function () {
     userHasInteracted();
+    if (!isUsingUploadedData || !uploadedDataset) {
+      alert("Please upload a CSV dataset before training.");
+      return;
+    }
     player.playOrPause();
   });
 
   d3.select("#next-step-button-toolbar").on("click", () => {
     player.pause();
     userHasInteracted();
+    if (!isUsingUploadedData || !uploadedDataset) {
+      alert("Please upload a CSV dataset before training.");
+      return;
+    }
     if (iter === 0) {
       simulationStarted();
     }
@@ -1235,16 +1118,6 @@ function makeGUI() {
     }
   });
 
-  d3.select("#problem-toolbar").on("change", function() {
-    state.problem = problems[this.value];
-    generateData();
-    parametersChanged = true;
-    reset();
-    let oldControl = d3.select("#problem").node();
-    if (oldControl) {
-      d3.select("#problem").property("value", this.value);
-    }
-  });
 
   d3.select("#add-layers-toolbar").on("click", () => {
     if (state.numHiddenLayers >= 6) {
@@ -1294,18 +1167,6 @@ function makeGUI() {
     reset();
   });
 
-  d3.select("#noise-slider").on("input", function() {
-    state.noise = +this.value;
-    d3.select("#noise-display").text(this.value);
-    let oldControl = d3.select("#noise").node();
-    if (oldControl) {
-      d3.select("#noise").property("value", this.value);
-    }
-    generateData();
-    parametersChanged = true;
-    reset();
-  });
-
   d3.select("#percTrainData-slider").on("input", function() {
     state.percTrainData = +this.value;
     d3.select("#split-display").text(this.value);
@@ -1316,11 +1177,6 @@ function makeGUI() {
     generateData();
     parametersChanged = true;
     reset();
-  });
-
-  d3.select("#data-regen-button-bottom").on("click", () => {
-    generateData();
-    parametersChanged = true;
   });
 
   // View predictions modal
@@ -1367,11 +1223,9 @@ function makeGUI() {
 
   // Initialize slider displays
   d3.select("#batch-display").text(state.batchSize);
-  d3.select("#noise-display").text(state.noise);
   d3.select("#split-display").text(state.percTrainData);
 
   d3.select("#batchSize-slider").property("value", state.batchSize);
-  d3.select("#noise-slider").property("value", state.noise);
   d3.select("#percTrainData-slider").property("value", state.percTrainData);
 
   // Listen for css-responsive changes and redraw the svg network.
@@ -1445,14 +1299,6 @@ function updateWeightsUI(network: nn.Node[][], container) {
 
 function drawNode(cx: number, cy: number, nodeId: string, isInput: boolean,
     container, node?: nn.Node) {
-  let isUploadedInput = isUsingUploadedData && uploadedDataset != null;
-  let inputIsActive = isUploadedInput ? true : !!state[nodeId];
-  
-  // Skip drawing if this is an inactive input feature
-  if (isInput && !inputIsActive) {
-    return; // Don't draw anything for inactive features
-  }
-  
   let x = cx - RECT_SIZE / 2;
   let y = cy - RECT_SIZE / 2;
 
@@ -1472,19 +1318,10 @@ function drawNode(cx: number, cy: number, nodeId: string, isInput: boolean,
       height: RECT_SIZE,
     });
     
-  let activeOrNotClass = inputIsActive ? "active" : "inactive";
-  
   if (isInput) {
     let label: string;
-    if (isUsingUploadedData) {
-      // Show actual feature names from CSV.
-      label = nodeId;
-    } else {
-      // Original behavior.
-      let inputFeature = INPUTS[nodeId];
-      label = (inputFeature != null && inputFeature.label != null) ?
-          inputFeature.label : nodeId;
-    }
+    // Show actual feature names from CSV when available.
+    label = nodeId;
     // Draw the input label.
     let text = nodeGroup.append("text").attr({
       class: "main-label",
@@ -1514,7 +1351,6 @@ function drawNode(cx: number, cy: number, nodeId: string, isInput: boolean,
     } else {
       text.append("tspan").text(label);
     }
-    nodeGroup.classed(activeOrNotClass, true);
   }
   
   if (!isInput) {
@@ -1533,29 +1369,23 @@ function drawNode(cx: number, cy: number, nodeId: string, isInput: boolean,
       });
   }
 
-  // Draw the node's canvas - only for active input features
-  if (!isInput || inputIsActive) {
-    let div = d3.select("#network").insert("div", ":first-child")
-      .attr({
-        "id": `canvas-${nodeId}`,
-        "class": "canvas"
-      })
-      .style({
-        position: "absolute",
-        left: `${x + 3}px`,
-        top: `${y + 3}px`
-      });
-      
-    if (isInput) {
-      div.style("cursor", "default"); // Remove click functionality for input nodes
-    }
-    
-    if (isInput) {
-      div.classed(activeOrNotClass, true);
-    }
-    
-    div.datum({id: nodeId});
+  // Draw the node's canvas
+  let div = d3.select("#network").insert("div", ":first-child")
+    .attr({
+      "id": `canvas-${nodeId}`,
+      "class": "canvas"
+    })
+    .style({
+      position: "absolute",
+      left: `${x + 3}px`,
+      top: `${y + 3}px`
+    });
+
+  if (isInput) {
+    div.style("cursor", "default"); // Remove click functionality for input nodes
   }
+
+  div.datum({id: nodeId});
 }
 
 // Draw network
@@ -1592,17 +1422,11 @@ function drawNetwork(network: nn.Node[][]): void {
   let idWithCallout = null;
   let targetIdWithCallout = null;
 
-  // Draw the input layer separately - only active features
+  // Draw the input layer separately
   let cx = RECT_SIZE / 2 + 50;
-  let nodeIds = isUsingUploadedData && uploadedDataset != null ?
-      uploadedDataset.featureColumns : Object.keys(INPUTS);
-  
-  // Filter to only active features
-  let activeNodeIds = (isUsingUploadedData && uploadedDataset != null) ?
-      nodeIds : nodeIds.filter(nodeId => state[nodeId]);
-  
-  let maxY = nodeIndexScale(activeNodeIds.length);
-  activeNodeIds.forEach((nodeId, i) => {
+  let nodeIds = network[0].map(node => node.id);
+  let maxY = nodeIndexScale(nodeIds.length);
+  nodeIds.forEach((nodeId, i) => {
     let cy = nodeIndexScale(i) + RECT_SIZE / 2;
     node2coord[nodeId] = {cx, cy};
     drawNode(cx, cy, nodeId, true, container);
@@ -1817,14 +1641,23 @@ function drawLink(
   return line;
 }
 
+function getErrorFunction(): nn.ErrorFunction {
+  return state.problem === Problem.CLASSIFICATION ?
+    nn.Errors.BINARY_CROSS_ENTROPY_TANH : nn.Errors.SQUARE;
+}
+
 function getLoss(network: nn.Node[][], dataPoints: Example2D[]): number {
+  if (dataPoints.length === 0) {
+    return 0;
+  }
+  let errorFunc = getErrorFunction();
   let loss = 0;
   for (let i = 0; i < dataPoints.length; i++) {
     let uploadedPoint = (isUsingUploadedData && uploadedDataset != null) ?
         uploadedDataset.data[i % uploadedDataset.data.length] : null;
     let input = constructInput(dataPoints[i].x, dataPoints[i].y, uploadedPoint);
     let output = nn.forwardProp(network, input);
-    loss += nn.Errors.SQUARE.error(output, dataPoints[i].label);
+    loss += errorFunc.error(output, dataPoints[i].label);
   }
   return loss / dataPoints.length;
 }
@@ -1832,51 +1665,140 @@ function getLoss(network: nn.Node[][], dataPoints: Example2D[]): number {
 function updatePredictionTable() {
   if (!isUsingUploadedData || uploadedDataset == null || testData.length === 0) {
     d3.select("#prediction-results").style("display", "none");
+    d3.selectAll(".classification-metric").style("display", "none");
+    d3.selectAll(".regression-metric").style("display", "none");
     return;
   }
-  
+
   d3.select("#prediction-results").style("display", "block");
-  
-  let predictions: {predicted: number, actual: number, match: boolean}[] = [];
-  let correct = 0;
-  
+
+  let predictions: {predicted: number, actual: number, match?: boolean}[] = [];
+  let outputs: number[] = [];
+  let actuals: number[] = [];
+
   for (let i = 0; i < testData.length; i++) {
     let dataPoint = uploadedDataset.data[trainData.length + i];
     let input = constructInput(testData[i].x, testData[i].y, dataPoint);
     let output = nn.forwardProp(network, input);
     let actual = testData[i].label;
-    
-    let predictedClass = output >= 0 ? 1 : -1;
-    let actualClass = actual >= 0 ? 1 : -1;
-    let match = predictedClass === actualClass;
-    
-    if (match) correct++;
-    
+
+    outputs.push(output);
+    actuals.push(actual);
     predictions.push({
       predicted: output,
-      actual: actual,
-      match: match
+      actual: actual
     });
   }
-  
-  let accuracy = (correct / testData.length * 100).toFixed(1);
-  d3.select("#accuracy-display").html(`<strong>Accuracy:</strong> ${accuracy}% (${correct}/${testData.length} correct)`);
-  
+
+  let problemType = uploadedDataset.problemType;
+  if (problemType === Problem.CLASSIFICATION) {
+    let correct = 0;
+    let tp = 0;
+    let fp = 0;
+    let fn = 0;
+    for (let i = 0; i < outputs.length; i++) {
+      let predictedClass = outputs[i] >= 0 ? 1 : -1;
+      let actualClass = actuals[i] >= 0 ? 1 : -1;
+      let match = predictedClass === actualClass;
+      predictions[i].predicted = predictedClass;
+      predictions[i].actual = actualClass;
+      predictions[i].match = match;
+      if (match) {
+        correct++;
+      }
+      if (predictedClass === 1 && actualClass === 1) tp++;
+      if (predictedClass === 1 && actualClass === -1) fp++;
+      if (predictedClass === -1 && actualClass === 1) fn++;
+    }
+    let accuracy = correct / outputs.length;
+    let precision = tp + fp == 0 ? 0 : tp / (tp + fp);
+    let recall = tp + fn == 0 ? 0 : tp / (tp + fn);
+
+    d3.select("#accuracy-display-main").text(`${(accuracy * 100).toFixed(1)}%`);
+    d3.select("#precision-display-main").text(`${(precision * 100).toFixed(1)}%`);
+    d3.select("#recall-display-main").text(`${(recall * 100).toFixed(1)}%`);
+
+    d3.select("#prediction-metrics").html(
+      `<strong>Accuracy:</strong> ${(accuracy * 100).toFixed(1)}% (${correct}/${outputs.length} correct)` +
+      ` &nbsp; <strong>Precision:</strong> ${(precision * 100).toFixed(1)}%` +
+      ` &nbsp; <strong>Recall:</strong> ${(recall * 100).toFixed(1)}%`
+    );
+
+    d3.selectAll(".classification-metric").style("display", "block");
+    d3.selectAll(".regression-metric").style("display", "none");
+
+    d3.select("#prediction-table thead").html(`
+      <tr>
+        <th>#</th>
+        <th>Predicted Class</th>
+        <th>Actual Class</th>
+        <th>Correct</th>
+      </tr>
+    `);
+  } else {
+    let absErrors: number[] = [];
+    let sqErrors: number[] = [];
+    let meanActual = actuals.reduce((a, b) => a + b, 0) / actuals.length;
+    let ssRes = 0;
+    let ssTot = 0;
+    for (let i = 0; i < outputs.length; i++) {
+      let err = outputs[i] - actuals[i];
+      absErrors.push(Math.abs(err));
+      sqErrors.push(err * err);
+      ssRes += err * err;
+      let diff = actuals[i] - meanActual;
+      ssTot += diff * diff;
+    }
+    let mae = absErrors.reduce((a, b) => a + b, 0) / absErrors.length;
+    let mse = sqErrors.reduce((a, b) => a + b, 0) / sqErrors.length;
+    let rmse = Math.sqrt(mse);
+    let r2 = ssTot == 0 ? 0 : 1 - (ssRes / ssTot);
+
+    d3.select("#mae-display-main").text(mae.toFixed(3));
+    d3.select("#rmse-display-main").text(rmse.toFixed(3));
+    d3.select("#r2-display-main").text(r2.toFixed(3));
+
+    d3.select("#prediction-metrics").html(
+      `<strong>MAE:</strong> ${mae.toFixed(3)}` +
+      ` &nbsp; <strong>RMSE:</strong> ${rmse.toFixed(3)}` +
+      ` &nbsp; <strong>R2:</strong> ${r2.toFixed(3)}`
+    );
+
+    d3.selectAll(".classification-metric").style("display", "none");
+    d3.selectAll(".regression-metric").style("display", "block");
+
+    d3.select("#prediction-table thead").html(`
+      <tr>
+        <th>#</th>
+        <th>Predicted</th>
+        <th>Actual</th>
+        <th>Error</th>
+      </tr>
+    `);
+  }
+
   // Show first 10 predictions
   let tbody = d3.select("#prediction-tbody");
   tbody.html("");
-  
+
   let displayCount = Math.min(10, predictions.length);
   for (let i = 0; i < displayCount; i++) {
     let row = tbody.append("tr");
     row.append("td").text(i + 1);
-    row.append("td").text(predictions[i].predicted.toFixed(3));
-    row.append("td").text(predictions[i].actual.toFixed(3));
-    row.append("td")
-      .attr("class", predictions[i].match ? "match-correct" : "match-incorrect")
-      .text(predictions[i].match ? "✓" : "✗");
+    if (problemType === Problem.CLASSIFICATION) {
+      row.append("td").text(predictions[i].predicted.toFixed(0));
+      row.append("td").text(predictions[i].actual.toFixed(0));
+      row.append("td")
+        .attr("class", predictions[i].match ? "match-correct" : "match-incorrect")
+        .text(predictions[i].match ? "OK" : "X");
+    } else {
+      let error = predictions[i].predicted - predictions[i].actual;
+      row.append("td").text(predictions[i].predicted.toFixed(3));
+      row.append("td").text(predictions[i].actual.toFixed(3));
+      row.append("td").text(error.toFixed(3));
+    }
   }
-  
+
   if (predictions.length > 10) {
     d3.select("#show-all-predictions")
       .style("display", "block")
@@ -1923,11 +1845,6 @@ function updateUI(firstStep = false) {
   // Update layer display
   d3.select("#num-layers-display").text(state.numHiddenLayers);
 
-  // Show accuracy if classification
-  if (isUsingUploadedData && uploadedDataset.problemType === Problem.CLASSIFICATION) {
-    d3.select("#accuracy-metric").style("display", "block");
-  }
-
   if (connectionEditMode) {
     bindLinkClickHandlers();
   }
@@ -1937,39 +1854,32 @@ function constructInputIds(): string[] {
   if (isUsingUploadedData && uploadedDataset != null) {
     return uploadedDataset.featureColumns.slice();
   }
-  let result: string[] = [];
-  for (let inputName in INPUTS) {
-    if (state[inputName]) {
-      result.push(inputName);
-    }
-  }
-  return result;
+  return PLACEHOLDER_INPUTS.slice();
 }
 
 function constructInput(x: number, y: number, dataPoint?: DataPoint): number[] {
-  if (isUsingUploadedData && dataPoint) {
-    // Use actual features from uploaded data
+  if (dataPoint) {
     return dataPoint.features;
   }
-  
-  // Original behavior for built-in datasets
-  let input: number[] = [];
-  for (let inputName in INPUTS) {
-    if (state[inputName]) {
-      input.push(INPUTS[inputName].f(x, y));
-    }
+  let size = constructInputIds().length;
+  let zeros: number[] = [];
+  for (let i = 0; i < size; i++) {
+    zeros.push(0);
   }
-  return input;
+  return zeros;
 }
 
 function oneStep(): void {
+  if (!isUsingUploadedData || !uploadedDataset || trainData.length === 0) {
+    return;
+  }
   iter++;
   trainData.forEach((point, i) => {
     let dataPoint = (isUsingUploadedData && uploadedDataset != null) ?
         uploadedDataset.data[i % uploadedDataset.data.length] : null;
     let input = constructInput(point.x, point.y, dataPoint);
     nn.forwardProp(network, input);
-    nn.backProp(network, point.label, nn.Errors.SQUARE);
+    nn.backProp(network, point.label, getErrorFunction());
     if ((i + 1) % state.batchSize === 0) {
       nn.updateWeights(network, state.learningRate, state.regularizationRate);
     }
@@ -2011,6 +1921,9 @@ function reset(onStartup=false) {
   
   if (isUsingUploadedData) {
     generateDataFromUpload();
+  } else {
+    trainData = [];
+    testData = [];
   }
 
   // Make a simple network.
@@ -2097,29 +2010,12 @@ function hideControls() {
 }
 
 function generateData(firstTime = false) {
-  if (isUsingUploadedData) {
-    generateDataFromUpload();
+  if (!isUsingUploadedData) {
+    trainData = [];
+    testData = [];
     return;
   }
-  
-  if (!firstTime) {
-    // Change the seed.
-    state.seed = Math.random().toFixed(5);
-    state.serialize();
-    userHasInteracted();
-  }
-  Math.seedrandom(state.seed);
-  let numSamples = (state.problem === Problem.REGRESSION) ?
-      NUM_SAMPLES_REGRESS : NUM_SAMPLES_CLASSIFY;
-  let generator = state.problem === Problem.CLASSIFICATION ?
-      state.dataset : state.regDataset;
-  let data = generator(numSamples, state.noise / 100);
-  // Shuffle the data in-place.
-  shuffle(data);
-  // Split into train and test data.
-  let splitIndex = Math.floor(data.length * state.percTrainData / 100);
-  trainData = data.slice(0, splitIndex);
-  testData = data.slice(splitIndex);
+  generateDataFromUpload();
 }
 
 let firstInteraction = true;
@@ -2164,7 +2060,8 @@ function generateKerasCode(includeComments: boolean, includeWeights: boolean): s
     regularizationRate: state.regularizationRate,
     batchSize: state.batchSize,
     problemType: state.problem === Problem.CLASSIFICATION ? 'classification' : 'regression',
-    featureNames: isUsingUploadedData ? uploadedDataset.featureColumns : Object.keys(INPUTS).filter(k => state[k]),
+    featureNames: isUsingUploadedData && uploadedDataset != null ?
+      uploadedDataset.featureColumns : PLACEHOLDER_INPUTS,
     trainTestSplit: state.percTrainData / 100,
     epochs: iter
   };
@@ -2294,11 +2191,12 @@ function buildKerasCodeString(config: NetworkExportConfig, includeComments: bool
     code += `# 2. COMPILE MODEL\n`;
     code += `# ============================================\n\n`;
   }
-  
+  let lossName = config.problemType === 'classification' ? 'binary_crossentropy' : 'mse';
+  let metricsList = config.problemType === 'classification' ? "['accuracy']" : "['mae']";
   code += `model.compile(\n`;
   code += `    optimizer=keras.optimizers.SGD(learning_rate=${config.learningRate}),\n`;
-  code += `    loss='mse',\n`;
-  code += `    metrics=['mae']\n`;
+  code += `    loss='${lossName}',\n`;
+  code += `    metrics=${metricsList}\n`;
   code += `)\n\n`;
   
   // Section 3: Load weights (if included)

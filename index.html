@@ -49,7 +49,7 @@
         <div class="feature-highlights">
           <div class="feature-item">
             <i class="material-icons">upload_file</i>
-            <p>Upload your own data or use built-in datasets</p>
+            <p>Upload your CSV data to start training</p>
           </div>
           <div class="feature-item">
             <i class="material-icons">account_tree</i>
@@ -187,13 +187,6 @@
         </select>
       </label>
       
-      <label class="toolbar-control">
-        <span>Problem</span>
-        <select id="problem-toolbar">
-          <option value="classification" selected>Classification</option>
-          <option value="regression">Regression</option>
-        </select>
-      </label>
     </div>
     
     <div class="toolbar-section">
@@ -326,15 +319,6 @@
           </select>
         </div>
       </div>
-      <div class="control ui-problem">
-        <label for="problem">Problem type</label>
-        <div class="select">
-          <select id="problem">
-            <option value="classification">Classification</option>
-            <option value="regression">Regression</option>
-          </select>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -345,12 +329,6 @@
       <div class="network-header">
         <h3>Network Architecture</h3>
         <div class="network-controls">
-          <button id="add-input-button" class="network-control-btn">
-            <i class="material-icons">add</i> Add Input
-          </button>
-          <button id="remove-input-button" class="network-control-btn">
-            <i class="material-icons">remove</i> Remove Input
-          </button>
           <span class="layer-info">
             <strong id="num-layers-display">2</strong> Hidden Layers
           </span>
@@ -392,6 +370,20 @@
             Upload CSV
           </button>
         </div>
+        <div class="dataset-meta">
+          <div class="meta-row">
+            <span class="meta-label">Detected problem type</span>
+            <span class="meta-value" id="detected-problem-type">-</span>
+          </div>
+          <div class="meta-row">
+            <label for="problem-override" class="meta-label">Override</label>
+            <select id="problem-override">
+              <option value="auto" selected>Use detected</option>
+              <option value="classification">Classification</option>
+              <option value="regression">Regression</option>
+            </select>
+          </div>
+        </div>
         <div id="feature-selector" style="display: none;"></div>
       </div>
       
@@ -403,16 +395,9 @@
           <input type="range" id="batchSize-slider" min="1" max="30" step="1" value="10" class="param-slider">
         </div>
         <div class="param-group">
-          <label>Noise Level: <strong id="noise-display">0</strong></label>
-          <input type="range" id="noise-slider" min="0" max="50" step="5" value="0" class="param-slider">
-        </div>
-        <div class="param-group">
           <label>Train/Test Split: <strong id="split-display">50</strong>%</label>
           <input type="range" id="percTrainData-slider" min="10" max="90" step="10" value="50" class="param-slider">
         </div>
-        <button class="basic-button" id="data-regen-button-bottom" style="display: none;">
-          Regenerate Dataset
-        </button>
       </div>
       
       <!-- Results Column -->
@@ -427,9 +412,29 @@
             <span class="metric-label">Train Loss</span>
             <span class="metric-value" id="loss-train-display">0.000</span>
           </div>
-          <div class="metric-item" id="accuracy-metric" style="display: none;">
+          <div class="metric-item classification-metric" style="display: none;">
             <span class="metric-label">Accuracy</span>
             <span class="metric-value" id="accuracy-display-main">0%</span>
+          </div>
+          <div class="metric-item classification-metric" style="display: none;">
+            <span class="metric-label">Precision</span>
+            <span class="metric-value" id="precision-display-main">0%</span>
+          </div>
+          <div class="metric-item classification-metric" style="display: none;">
+            <span class="metric-label">Recall</span>
+            <span class="metric-value" id="recall-display-main">0%</span>
+          </div>
+          <div class="metric-item regression-metric" style="display: none;">
+            <span class="metric-label">MAE</span>
+            <span class="metric-value" id="mae-display-main">0.000</span>
+          </div>
+          <div class="metric-item regression-metric" style="display: none;">
+            <span class="metric-label">RMSE</span>
+            <span class="metric-value" id="rmse-display-main">0.000</span>
+          </div>
+          <div class="metric-item regression-metric" style="display: none;">
+            <span class="metric-label">R2</span>
+            <span class="metric-value" id="r2-display-main">0.000</span>
           </div>
         </div>
         
@@ -455,7 +460,7 @@
         </div>
         <div class="modal-body">
           <div id="prediction-results">
-            <div id="accuracy-display"></div>
+            <div id="prediction-metrics"></div>
             <div id="prediction-table-container">
               <table id="prediction-table">
                 <thead>
@@ -588,7 +593,7 @@
         
         <h3>Network Components</h3>
         <p>
-          <strong>Input Layer:</strong> Represents your selected features from the dataset. You can choose which properties to feed into the network.
+          <strong>Input Layer:</strong> Represents the feature columns you selected from your uploaded CSV.
         </p>
         <p>
           <strong>Hidden Layers:</strong> The computational core of your network. Add or remove layers and adjust neuron counts to change your network's capacity and complexity.
@@ -619,7 +624,7 @@
       <div class="content-section">
         <h2>Get Started Today</h2>
         <p>
-          Ready to build your first neural network? Start by selecting a dataset from the options above, then configure your network architecture by adding hidden layers. Choose an activation function and learning rate, then hit play and watch your network learn!
+          Ready to build your first neural network? Start by uploading a CSV dataset above, choose your label and features, then configure your network architecture by adding hidden layers. Choose an activation function and learning rate, then hit play and watch your network learn!
         </p>
         <p>
           Don't worry about making mistakes – experimentation is the best way to learn. Try different configurations, observe how they perform, and develop your intuition about neural network design. The interface is designed to be forgiving and educational, so feel free to explore.

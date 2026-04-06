@@ -1069,7 +1069,7 @@ header h1 .optional {
   font-weight: bold;
 }
 
-#accuracy-display {
+#prediction-metrics {
   font-size: 14px;
   margin-bottom: 10px;
   padding: 10px;
@@ -1652,6 +1652,53 @@ body.connection-edit-mode #network .link:hover {
   margin-right: 8px;
 }
 
+.dataset-meta {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8f8f8;
+  border: 1px solid #eee;
+  border-radius: 6px;
+}
+
+.dataset-meta .meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.dataset-meta .meta-row:last-child {
+  margin-bottom: 0;
+}
+
+.dataset-meta .meta-label {
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.dataset-meta .meta-value {
+  font-weight: 600;
+  color: #333;
+}
+
+#problem-override {
+  flex: 1;
+  padding: 6px;
+  font-size: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+}
+
+#problem-override:disabled {
+  background: #f3f3f3;
+  color: #999;
+}
+
 #top-toolbar {
   position: sticky;
   top: 0;
@@ -1933,7 +1980,7 @@ body.connection-edit-mode #network .link:hover {
 /* Results Column */
 .metrics-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
   margin-bottom: 20px;
 }

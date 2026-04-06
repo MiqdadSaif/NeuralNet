@@ -84,6 +84,23 @@ export class Errors {
                0.5 * Math.pow(output - target, 2),
     der: (output: number, target: number) => output - target
   };
+  // Binary cross-entropy for tanh outputs in [-1, 1] and targets in {-1, 1}.
+  public static BINARY_CROSS_ENTROPY_TANH: ErrorFunction = {
+    error: (output: number, target: number) => {
+      let eps = 1e-7;
+      let p = (output + 1) / 2;
+      let t = target >= 0 ? 1 : 0;
+      p = Math.min(1 - eps, Math.max(eps, p));
+      return -(t * Math.log(p) + (1 - t) * Math.log(1 - p));
+    },
+    der: (output: number, target: number) => {
+      let eps = 1e-7;
+      let p = (output + 1) / 2;
+      let t = target >= 0 ? 1 : 0;
+      p = Math.min(1 - eps, Math.max(eps, p));
+      return 0.5 * ((p - t) / (p * (1 - p)));
+    }
+  };
 }
 
 /** Polyfill for TANH */
